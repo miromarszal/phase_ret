@@ -13,6 +13,7 @@ from scipy.ndimage import extrema
 from scipy.special import j1
 from scipy.signal import resample
 from pandas import DataFrame
+import sys
 fac = np.math.factorial
 
 # Optionally import the tifffile module. It provides the Tiff stack
@@ -23,7 +24,7 @@ try:
     TIFF_LOADED = True
 except ImportError:
     TIFF_LOADED = False
-    print 'Failed to import tifffile. Store Tiff stacks in Numpy arrays.'
+    print('Failed to import tifffile. Store Tiff stacks in Numpy arrays.')
 
 
 def circle(x0, y0, r, L):
@@ -46,22 +47,22 @@ def circle(x0, y0, r, L):
         An LxL numpy.array with values of 1 inside the circle,
         0 outside of it, and weighted accordingly on the edge.
     """
-    L0 = int(np.ceil(r)+1)*2   # Subarray size
-    dx = int(x0)-L0/2          # Number of pixels to pad to the full array size
-    dy = int(y0)-L0/2
+    L0 = int((np.ceil(r)+1)*2)  # Subarray size
+    dx = int(x0-L0/2)          # Number of pixels to pad to the full array size
+    dy = int(y0-L0/2)
     circ = np.zeros((L,L))
     # Loop over the subarray
     for j,i in np.ndindex((L0,L0)):
         d = 2. * (np.sqrt((x0-dx-i)**2 + (y0-dy-j)**2) - r)
         # Pixel outside the circle
         if d >= 1:
-            circ[dy+j,dx+i] = 0.
+            circ[dy+j, dx+i] = 0.
         # Pixel inside the circle
         elif d <= -1:
-            circ[dy+j,dx+i] = 1.
+            circ[dy+j, dx+i] = 1.
         # Intermediate case - edge pixels
         else:
-            circ[dy+j,dx+i] = (np.arccos(d) - d*np.sqrt(1.-d**2)) / np.pi
+            circ[dy+j, dx+i] = (np.arccos(d) - d*np.sqrt(1.-d**2)) / np.pi
     return circ
 
 
@@ -76,15 +77,17 @@ def crop(img, x0, y0, s):
     Returns:
         A cropped view of the image.
     """
-    img2 = img[y0-s/2:y0+int(np.ceil(s/2.)), x0-s/2:x0+int(np.ceil(s/2.))]
+    x0 = round(x0) - s//2
+    y0 = round(y0) - s//2
+    img2 = img[y0:y0+s, x0:x0+s]
     return img2
 
 
-def CSF((x, y), r0):
+def CSF(x, y, r0):
     """Aberration-free coherent spread function.
 
     Args:
-        (x, y): A tuple of coordinates, can be 2D arrays.
+        x, y: Coordinates, can be 2D arrays.
         r0: The Airy disk radius.
     """
     a = 1.22*np.pi/r0
