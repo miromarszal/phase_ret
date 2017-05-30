@@ -1,5 +1,5 @@
 ﻿# -*- coding: utf-8 -*-
-"""phase_ret3py
+"""phase_ret3.py
 
 Utility functions and classes for phase retrieval, image analysis
 and Zernike polynomial fitting.

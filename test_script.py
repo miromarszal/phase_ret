@@ -3,11 +3,8 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import ImageGrid
 import numpy as np
 from numpy.testing import *
-import scipy.optimize as op
 from tifffile import TiffFile
 import phase_ret3 as ph
-import sys
-import unittest
 import nose
 
 def imshow_grid(imgs, frac=1., clims=None):
@@ -40,10 +37,10 @@ class TestCircle:
     def setup(self):
         self.circ = ph.circle(8, 8, 4, 64)
 
-    def test_circle_center_val(self):
+    def test_center_val(self):
         assert_equal(self.circ[8,8], 1.)
 
-    def test_circle_edge_vals(self):
+    def test_edge_vals(self):
         assert_equal(self.circ[8,4], .5)
         assert_equal(self.circ[8,12], .5)
         assert_equal(self.circ[4,8], .5)
@@ -58,21 +55,21 @@ class TestCrop:
         self.x0, self.y0 = 6, 6
         self.s = 4
 
-    def test_crop_aligned_even(self):
+    def test_aligned_even(self):
         assert_array_equal(self.arr[4:8,4:8],
                            ph.crop(self.arr, self.x0, self.y0, self.s))
 
-    def test_crop_aligned_odd(self):
+    def test_aligned_odd(self):
         assert_array_equal(self.arr[4:9,4:9],
                            ph.crop(self.arr, self.x0, self.y0, self.s+1))
 
-    def test_crop_nonaligned_even(self):
+    def test_nonaligned_even(self):
         assert_array_equal(self.arr[4:8,4:8],
                            ph.crop(self.arr, self.x0+.25, self.y0+.25, self.s))
         assert_array_equal(self.arr[5:9,4:8],
                            ph.crop(self.arr, self.x0+.25, self.y0+.75, self.s))
 
-    def test_crop_nonaligned_odd(self):
+    def test_nonaligned_odd(self):
         assert_array_equal(self.arr[4:9,4:9],
                            ph.crop(self.arr, self.x0+.25, self.y0+.25, self.s+1))
         assert_array_equal(self.arr[5:10,4:9],
