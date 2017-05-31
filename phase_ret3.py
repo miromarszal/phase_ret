@@ -49,13 +49,13 @@ def circle(x0, y0, r, L):
         An LxL numpy.array with values of 1 inside the circle,
         0 outside of it, and weighted accordingly on the edge.
     """
-    L0 = int((np.ceil(r)+1)*2) # Subarray size
-    dx = int(x0-L0/2)          # Number of pixels to pad to the full array size
+    L0 = int((np.ceil(r)+1)*2)  # Subarray size
+    dx = int(x0-L0/2)           # Number of pixels to pad to the full array
     dy = int(y0-L0/2)
-    circ = np.zeros((L,L))
+    circ = np.zeros((L, L))
 
     # Loop over the subarray
-    for j,i in np.ndindex((L0,L0)):
+    for j, i in np.ndindex((L0, L0)):
         d = 2. * (np.sqrt((x0-dx-i)**2 + (y0-dy-j)**2) - r)
         # Pixel outside the circle
         if d >= 1:
@@ -99,7 +99,7 @@ def CSF(x, y, r0):
     # Handle zero division.
     if isinstance(r, np.ndarray):
         csf = np.ones_like(r)
-        csf[r!=0] = 2. * j1(a * r[r != 0]) / a / r[r != 0]
+        csf[r != 0] = 2. * j1(a * r[r != 0]) / a / r[r != 0]
     else:
         csf = 2. * j1(a * r) / a / r if r else 1.
     return csf
@@ -132,7 +132,7 @@ def total_power(img, x0, y0, r1=100, r2=250, r3=300, Xi=None, Yi=None):
 
     # Sectioning the image into the signal and background parts
     img_sig = img[(Xi - x0) ** 2 + (Yi - y0) ** 2 <= r1 ** 2]
-    img_bg = img[((Xi - x0) ** 2 + (Yi - y0) ** 2<= r3 ** 2)
+    img_bg = img[((Xi - x0) ** 2 + (Yi - y0) ** 2 <= r3 ** 2)
                  * ((Xi - x0) ** 2+(Yi - y0) ** 2 >= r2 ** 2)]
     Nsig = img_sig.size
     Nbg = img_bg.size
@@ -143,8 +143,8 @@ def total_power(img, x0, y0, r1=100, r2=250, r3=300, Xi=None, Yi=None):
     P = img_sig.sum() - Nsig * bg
     var_P = P + Nsig * (1. + 1. / Nbg) * var_bg
 
-    return {'P':P, 'var_P':var_P, 'Nsig':Nsig, 'bg':bg,
-            'var_bg':var_bg, 'Nbg':Nbg}
+    return {'P': P, 'var_P': var_P, 'Nsig': Nsig, 'bg': bg,
+            'var_bg': var_bg, 'Nbg': Nbg}
 
 
 def analyze_peaks(stack, window, res,
@@ -186,7 +186,7 @@ def analyze_peaks(stack, window, res,
     """
     parameters = DataFrame(columns=['amp', 'x0', 'y0', 'bg', 'tot power',
                                     'norm amp'], index=np.arange(len(stack)),
-                                    dtype='float64')
+                           dtype='float64')
     variances = DataFrame(columns=['amp', 'bg', 'tot power', 'norm amp'],
                           index=np.arange(len(stack)), dtype='float64')
     xw = np.arange(window)  # Window pixel coordinates
