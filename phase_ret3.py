@@ -147,12 +147,6 @@ def total_power(img, x0, y0, r1=100, r2=250, r3=300, Xi=None, Yi=None):
             'var_bg':var_bg, 'Nbg':Nbg}
 
 
-def locate_peak(img, res, Xi=None, Yi=None):
-    pass
-
-
-
-
 def analyze_peaks(stack, window, res,
                   r1=100, r2=250, r3=300, print_output=True):
     """Finds peaks in a Tiff stack and does several measurements.
@@ -220,7 +214,6 @@ def analyze_peaks(stack, window, res,
         # Saving to containers
         parameters.iloc[i] = Imax, x0, y0, bg, P, Inorm
         variances.iloc[i] = var_Imax, var_bg, var_P, var_Inorm
-scipy.signal.resample
     if print_output:
         print('parameters:\n')
         print(parameters)
