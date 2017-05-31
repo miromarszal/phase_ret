@@ -8,6 +8,7 @@ An improved version of phase_ret.py transferred to Python 3.
 author: Miroslaw Marszalek
 """
 
+# %%
 import numpy as np
 from scipy.ndimage import extrema
 from scipy.special import j1
@@ -16,6 +17,7 @@ from pandas import DataFrame
 import sys
 fac = np.math.factorial
 
+# %%
 # Optionally import the tifffile module. It provides the Tiff stack
 # functionality.  If not available, Tiff stacks will have to be
 # loaded into Numpy arrays another way.
@@ -47,7 +49,7 @@ def circle(x0, y0, r, L):
         An LxL numpy.array with values of 1 inside the circle,
         0 outside of it, and weighted accordingly on the edge.
     """
-    L0 = int((np.ceil(r)+1)*2)  # Subarray size
+    L0 = int((np.ceil(r)+1)*2) # Subarray size
     dx = int(x0-L0/2)          # Number of pixels to pad to the full array size
     dy = int(y0-L0/2)
     circ = np.zeros((L,L))
@@ -92,8 +94,12 @@ def CSF(x, y, r0):
     """
     a = 1.22*np.pi/r0
     r = np.sqrt(x**2+y**2)
-    csf = 2*j1(a*r)/a/r
-    csf[np.isnan(csf)] = 1.
+    # Handle zero division.
+    if isinstance(r, np.ndarray):
+        csf = np.ones_like(r)
+        csf[r!=0] = 2.*j1(a*r[r!=0])/a/r[r!=0]
+    else:
+        csf = 2.*j1(a*r)/a/r if r else 1.
     return csf
 
 

@@ -1,34 +1,7 @@
-#%matplotlib inline
-import matplotlib.pyplot as plt
-from mpl_toolkits.axes_grid1 import ImageGrid
 import numpy as np
 from numpy.testing import *
-from tifffile import TiffFile
 import phase_ret3 as ph
 import nose
-
-def imshow_grid(imgs, frac=1., clims=None):
-    """A wrapper to conveniently display zoomed images in a grid."""
-    n = len(imgs)
-    fig = plt.figure(figsize=(4*n, 3))
-    img_grid = ImageGrid(fig, 111, nrows_ncols=(1, n), axes_pad=.75,
-    cbar_mode='each', cbar_pad='5%')
-    for i, (ax, cbar, img) in enumerate(zip(img_grid,
-                                        img_grid.cbar_axes,
-                                        imgs)):
-        N = img.shape[0] / 2.
-        M = img.shape[1] / 2.
-        im = ax.imshow(img, extent=(-M, M, N, -N),
-        interpolation='nearest')
-        ax.set_xlim(-frac*M, frac*M)
-        ax.set_ylim(-frac*N, frac*N)
-        if (clims is not None) and (clims[i] is not None):
-            im.set_clim(clims[i])
-        cbar.colorbar(im)
-    return fig
-
-def imshow_cmplx(img, **kwargs):
-    imshow_grid([np.abs(img), np.angle(img)/2./np.pi], **kwargs)
 
 
 # %% Testing the circle function.
@@ -75,7 +48,32 @@ class TestCrop:
         assert_array_equal(self.arr[5:10,4:9],
                            ph.crop(self.arr, self.x0+.25, self.y0+.75, self.s+1))
 
+
+# %% Testing the CSF function
+class TestCSF:
+
+    def setup(self):
+        self.y, self.x = np.indices((16, 16))
+
+    def test_peak_scalar(self):
+        assert_equal(ph.CSF(0, 0, 4), 1)
+
+    def test_peak_array(self):
+        assert_equal(ph.CSF(self.x-8, self.y-8, 4)[8, 8], 1)
+
+    def test_minima_scalar(self):
+        assert_almost_equal(ph.CSF(0, 4, 4), 0, decimal=3)
+        assert_almost_equal(ph.CSF(0, -4, 4), 0, decimal=3)
+        assert_almost_equal(ph.CSF(4, 0, 4), 0, decimal=3)
+        assert_almost_equal(ph.CSF(-4, 0, 4), 0, decimal=3)
+
+    def test_minima_array(self):
+        assert_almost_equal(ph.CSF(self.x-8, self.y-8, 4)[8, 4], 0, decimal=3)
+        assert_almost_equal(ph.CSF(self.x-8, self.y-8, 4)[8, 12], 0, decimal=3)
+        assert_almost_equal(ph.CSF(self.x-8, self.y-8, 4)[4, 8], 0, decimal=3)
+        assert_almost_equal(ph.CSF(self.x-8, self.y-8, 4)[12, 8], 0, decimal=3)
+
+
 # %% Run the tests!
 if __name__ == '__main__':
-    #unittest.main(argv=['ignored', '-v'], exit=False)
     result = nose.run(argv=['ignored', '-v'])
