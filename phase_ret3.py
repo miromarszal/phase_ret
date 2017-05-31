@@ -16,8 +16,8 @@ from scipy.signal import resample
 from pandas import DataFrame
 import sys
 fac = np.math.factorial
-
 # %%
+
 # Optionally import the tifffile module. It provides the Tiff stack
 # functionality.  If not available, Tiff stacks will have to be
 # loaded into Numpy arrays another way.
@@ -53,6 +53,7 @@ def circle(x0, y0, r, L):
     dx = int(x0-L0/2)          # Number of pixels to pad to the full array size
     dy = int(y0-L0/2)
     circ = np.zeros((L,L))
+
     # Loop over the subarray
     for j,i in np.ndindex((L0,L0)):
         d = 2. * (np.sqrt((x0-dx-i)**2 + (y0-dy-j)**2) - r)
@@ -65,6 +66,7 @@ def circle(x0, y0, r, L):
         # Intermediate case - edge pixels
         else:
             circ[dy+j, dx+i] = (np.arccos(d) - d*np.sqrt(1.-d**2)) / np.pi
+
     return circ
 
 
@@ -79,8 +81,8 @@ def crop(img, x0, y0, s):
     Returns:
         A cropped view of the image.
     """
-    x0 = round(x0) - s//2
-    y0 = round(y0) - s//2
+    x0 = round(x0) - s // 2
+    y0 = round(y0) - s // 2
     img2 = img[y0:y0+s, x0:x0+s]
     return img2
 
@@ -92,15 +94,63 @@ def CSF(x, y, r0):
         x, y: Coordinates, can be 2D arrays.
         r0: The Airy disk radius.
     """
-    a = 1.22*np.pi/r0
-    r = np.sqrt(x**2+y**2)
+    a = 3.83170597 / r0
+    r = np.sqrt(x ** 2 + y ** 2)
     # Handle zero division.
     if isinstance(r, np.ndarray):
         csf = np.ones_like(r)
-        csf[r!=0] = 2.*j1(a*r[r!=0])/a/r[r!=0]
+        csf[r!=0] = 2. * j1(a * r[r != 0]) / a / r[r != 0]
     else:
-        csf = 2.*j1(a*r)/a/r if r else 1.
+        csf = 2. * j1(a * r) / a / r if r else 1.
     return csf
+
+
+def total_power(img, x0, y0, r1=100, r2=250, r3=300, Xi=None, Yi=None):
+    """Calculates the total power of an image in a circular region.
+
+    The algorithm sums all the pixel values from the image inside a
+    circle of radius r1 centred on (x0, y0) and subtracts background
+    taken as the mean value of the annulus between r2 and r3 centred
+    on (x0, y0).
+
+    Args:
+        img: An image to be analyzed (numpy.array).
+        x0, y0: Peak coordinates.
+        r1, r2, r3: Radii for sectioning the image.
+        Xi, Yi: Pixel coordnate arrays, to speed up the calculation.
+
+    Returns a dict of results:
+        P: The total power.
+        var_P: Variance of the total power value.
+        Nsig: Number of signal pixels used in the calculation.
+        bg: The background level.
+        var_bg: Variance of the background level.
+        Nbg: Number of background pixels used in the calculation.
+    """
+    if Xi is None or Yi is None:
+        Yi, Xi = np.indices(img.shape)
+
+    # Sectioning the image into the signal and background parts
+    img_sig = img[(Xi - x0) ** 2 + (Yi - y0) ** 2 <= r1 ** 2]
+    img_bg = img[((Xi - x0) ** 2 + (Yi - y0) ** 2<= r3 ** 2)
+                 * ((Xi - x0) ** 2+(Yi - y0) ** 2 >= r2 ** 2)]
+    Nsig = img_sig.size
+    Nbg = img_bg.size
+
+    # Estimating the background and the total power
+    bg = img_bg.mean()
+    var_bg = img_bg.var(ddof=1)
+    P = img_sig.sum() - Nsig * bg
+    var_P = P + Nsig * (1. + 1. / Nbg) * var_bg
+
+    return {'P':P, 'var_P':var_P, 'Nsig':Nsig, 'bg':bg,
+            'var_bg':var_bg, 'Nbg':Nbg}
+
+
+def locate_peak(img, res, Xi=None, Yi=None):
+    pass
+
+
 
 
 def analyze_peaks(stack, window, res,
@@ -170,47 +220,10 @@ def analyze_peaks(stack, window, res,
         # Saving to containers
         parameters.iloc[i] = Imax, x0, y0, bg, P, Inorm
         variances.iloc[i] = var_Imax, var_bg, var_P, var_Inorm
-
+scipy.signal.resample
     if print_output:
         print('parameters:\n')
         print(parameters)
         print('\nvariances:\n')
         print(variances)
     return parameters, variances
-
-
-def total_power(img, x0, y0, r1=100, r2=250, r3=300, Xi=None, Yi=None):
-    """Calculates the total power of a peak.
-
-    The algorithm sums all the pixel values from the image inside a
-    circle of radius r1 centred on (x0, y0) and subtracts background
-    taken as the mean value of the annulus between r2 and r3 centred
-    on (x0, y0).
-
-    Args:
-        img: An image to be analyzed (numpy.array).
-        x0, y0: Peak coordinates.
-        r1, r2, r3: Radii for sectioning the image.
-
-    Returns:
-        P: The total power.
-        var_P: Variance of the total power value.
-        Nsig: Number of signal pixels used in the calculation.
-        bg: The background level.
-        var_bg: Variance of the background level.
-        Nbg: Number of background pixels used in the calculation.
-    """
-    if Xi is None or Yi is None:
-        Yi, Xi = np.indices(img.shape)
-    # Sectioning the image into the signal and background parts
-    img_sig = img[(Xi-x0)**2+(Yi-y0)**2<=r1**2]
-    img_bg = img[((Xi-x0)**2+(Yi-y0)**2<=r3**2)
-                 * ((Xi-x0)**2+(Yi-y0)**2>=r2**2)]
-    Nsig = img_sig.size
-    Nbg = img_bg.size
-    # Estimating the background and the total power
-    bg = img_bg.mean()
-    var_bg = img_bg.var(ddof=1)
-    P = img_sig.sum() - Nsig*bg
-    var_P = P + Nsig * (1. + 1./Nbg) * var_bg
-    return P, var_P, Nsig, bg, var_bg, Nbg
