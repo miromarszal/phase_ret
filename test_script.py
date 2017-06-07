@@ -101,24 +101,25 @@ class TestTotalPower:
 class TestLocatePeak:
 
     def setup(self):
-        Nx, Ny = 256, 128
+        Nx, Ny = 32, 64
         self.amp, s = 32000., 10.
         y, x = np.indices((Ny, Nx))
         self.res = 16
-        self.x0, self.y0 = 30.13, 87.94
+        max_delta = 3.
+        self.x0 = Nx/2 + (np.random.rand() - .5) * max_delta
+        self.y0 = Ny/2 + (np.random.rand() - .5) * max_delta
         r2 = (x - self.x0) ** 2 + (y -self.y0) ** 2
-        img = self.amp * np.exp(-r2 / 2 / s ** 2)
-        self.result = ph.locate_peak(img, self.res)
+        self.img = self.amp * np.exp(-r2 / 2 / s ** 2)
+        self.result = ph.locate_peak(self.img, self.res)
 
     def test_x(self):
-        assert np.abs(self.x0 - self.result[0]) < 1./self.res
+        assert_array_less(np.abs(self.x0 - self.result[0]), 1./self.res)
 
     def test_y(self):
-        assert np.abs(self.y0 - self.result[1]) < 1./self.res
+        assert_array_less(np.abs(self.y0 - self.result[1]), 1./self.res)
 
     def test_amp(self):
-        assert_almost_equal((self.result[2] - self.amp) / self.amp, 0,
-                            decimal=4)
+        assert_approx_equal(self.result[2], self.amp, significant=4)
 
 
 # Run the tests!
