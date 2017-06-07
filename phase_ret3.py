@@ -143,8 +143,27 @@ def total_power(img, x0, y0, r1=100, r2=250, r3=300, Xi=None, Yi=None):
     P = img_sig.sum() - Nsig * bg
     var_P = P + Nsig * (1. + 1. / Nbg) * var_bg
 
-    return {'P': P, 'var_P': var_P, 'Nsig': Nsig, 'bg': bg,
-            'var_bg': var_bg, 'Nbg': Nbg}
+    return P, var_P, Nsig, bg, var_bg, Nbg
+
+
+def locate_peak(img, res=16):
+    """Locates the maximum in the image via Fourier resampling
+
+    Args:
+        img: The image to be resampled.
+        res: Resampling rate, a pixel is divided into res**2 px.
+
+    Returns:
+        x0, y0: Peak coordinates.
+        amp: Peak amplitude.
+    """
+    Ny, Nx = img.shape
+    y, x = np.arange(Ny), np.arange(Nx)
+    imgResY, yRes = resample(img, res * Ny, y, axis=0)
+    imgRes, xRes = resample(imgResY, res * Nx, x, axis=1)
+    y0Res, x0Res = np.unravel_index(imgRes.argmax(), imgRes.shape)
+    y0, x0 = yRes[y0Res], xRes[x0Res]
+    return x0, y0, imgRes.max()
 
 
 def analyze_peaks(stack, window, res,

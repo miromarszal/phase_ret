@@ -91,10 +91,34 @@ class TestTotalPower:
                                      r1=100, r2=200, r3=300, Xi=x, Yi=y)
 
     def test_background(self):
-        assert_almost_equal(self.result['bg'], self.bg)
+        assert_almost_equal(self.result[3], self.bg)
 
     def test_total_power(self):
-        assert_almost_equal(self.result['P'], self.totp)
+        assert_almost_equal(self.result[0], self.totp)
+
+
+# Testing the locate_peak function.
+class TestLocatePeak:
+
+    def setup(self):
+        Nx, Ny = 256, 128
+        self.amp, s = 32000., 10.
+        y, x = np.indices((Ny, Nx))
+        self.res = 16
+        self.x0, self.y0 = 30.13, 87.94
+        r2 = (x - self.x0) ** 2 + (y -self.y0) ** 2
+        img = self.amp * np.exp(-r2 / 2 / s ** 2)
+        self.result = ph.locate_peak(img, self.res)
+
+    def test_x(self):
+        assert np.abs(self.x0 - self.result[0]) < 1./self.res
+
+    def test_y(self):
+        assert np.abs(self.y0 - self.result[1]) < 1./self.res
+
+    def test_amp(self):
+        assert_almost_equal((self.result[2] - self.amp) / self.amp, 0,
+                            decimal=4)
 
 
 # Run the tests!
