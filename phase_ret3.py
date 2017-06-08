@@ -8,7 +8,6 @@ An improved version of phase_ret.py transferred to Python 3.
 author: Miroslaw Marszalek
 """
 
-# %%
 import numpy as np
 from scipy.ndimage import extrema
 from scipy.special import j1
@@ -16,7 +15,6 @@ from scipy.signal import resample
 from pandas import DataFrame
 import sys
 fac = np.math.factorial
-# %%
 
 # Optionally import the tifffile module. It provides the Tiff stack
 # functionality.  If not available, Tiff stacks will have to be
@@ -120,8 +118,8 @@ def total_power(img, x0, y0, r1=100, r2=250, r3=300, Xi=None, Yi=None):
         Xi, Yi: Pixel coordnate arrays, to speed up the calculation.
 
     Returns a dict of results:
-        P: The total power.
-        var_P: Variance of the total power value.
+        totp: The total power.
+        var_totp: Variance of the total power value.
         Nsig: Number of signal pixels used in the calculation.
         bg: The background level.
         var_bg: Variance of the background level.
@@ -129,22 +127,40 @@ def total_power(img, x0, y0, r1=100, r2=250, r3=300, Xi=None, Yi=None):
     """
     if Xi is None or Yi is None:
         Yi, Xi = np.indices(img.shape)
-
     # Sectioning the image into the signal and background parts
     img_sig = img[(Xi - x0) ** 2 + (Yi - y0) ** 2 <= r1 ** 2]
     img_bg = img[((Xi - x0) ** 2 + (Yi - y0) ** 2 <= r3 ** 2)
-                 * ((Xi - x0) ** 2+(Yi - y0) ** 2 >= r2 ** 2)]
+                 * ((Xi - x0) ** 2 + (Yi - y0) ** 2 >= r2 ** 2)]
     Nsig = img_sig.size
     Nbg = img_bg.size
-
     # Estimating the background and the total power
     bg = img_bg.mean()
     var_bg = img_bg.var(ddof=1)
-    P = img_sig.sum() - Nsig * bg
-    var_P = P + Nsig * (1. + 1. / Nbg) * var_bg
+    totp = img_sig.sum() - Nsig * bg
+    var_totp = totp + Nsig * (1. + 1. / Nbg) * var_bg
+    return totp, var_totp, Nsig, bg, var_bg, Nbg
 
-    return {'P': P, 'var_P': var_P, 'Nsig': Nsig, 'bg': bg,
-            'var_bg': var_bg, 'Nbg': Nbg}
+
+def locate_peak(img, res=16):
+    """Locates the maximum in the image via Fourier resampling
+
+    Args:
+        img: The image to be resampled.
+        res: Resampling rate, a pixel is divided into res**2 px.
+
+    Returns:
+        x0, y0: Peak coordinates.
+        amp: Peak amplitude.
+    """
+    Ny, Nx = img.shape
+    y, x = np.arange(Ny), np.arange(Nx)
+    # Resample.
+    imgResY, yRes = resample(img, res * Ny, y, axis=0)
+    imgRes, xRes = resample(imgResY, res * Nx, x, axis=1)
+    # Get positions and amplitude.
+    y0Res, x0Res = np.unravel_index(imgRes.argmax(), imgRes.shape)
+    y0, x0 = yRes[y0Res], xRes[x0Res]
+    return x0, y0, imgRes.max()
 
 
 def analyze_peaks(stack, window, res,
@@ -174,46 +190,43 @@ def analyze_peaks(stack, window, res,
             the stack.
 
     Columns correspond to:
+    x0, y0     -- sub-pixel peak location
     amp        -- peak amplitude of the resampled image after
                   background subtraction
-    x0, y0     -- sub-pixel peak location
-
-
     bg         -- background level
     tot power  -- total power of the signal
     norm amp   -- peak amplitude of the resampled image normalized
                   to the total power
     """
-    parameters = DataFrame(columns=['amp', 'x0', 'y0', 'bg', 'tot power',
-                                    'norm amp'], index=np.arange(len(stack)),
-                           dtype='float64')
+    parameters = DataFrame(columns=['x0', 'y0', 'amp', 'bg', 'tot power',
+                                    'norm amp'],
+                           index=np.arange(len(stack)), dtype='float64')
     variances = DataFrame(columns=['amp', 'bg', 'tot power', 'norm amp'],
                           index=np.arange(len(stack)), dtype='float64')
-    xw = np.arange(window)  # Window pixel coordinates
 
     # Loop over all images in the stack
     for i, img in enumerate(stack):
         if TIFF_LOADED and isinstance(stack, tifffile.TiffFile):
             img = img.asarray()
-        y0, x0 = extrema(img)[3]  # Coarse maximum location
-        imgCp = crop(img, x0, y0, window)  # Windowing
+        y0Cp, x0Cp = extrema(img)[3]  # Coarse maximum location
+        imgCp = crop(img, x0Cp, y0Cp, window)  # Windowing
         # Image resampling, getting the sub-pixel peak position
-        imgRes, xRes = resample(resample(imgCp, window*res, xw, axis=0)[0],
-                                window*res, xw, axis=1)
-        y0Res, x0Res = np.unravel_index(imgRes.argmax(), imgRes.shape)
+        x0, y0, amp = locate_peak(imgCp, res)
         # Converting peak coordinates from window to full image
-        x0 = xRes[x0Res] + x0 - window/2
-        y0 = xRes[y0Res] + y0 - window/2
+        x0 += x0Cp - window / 2
+        y0 += y0Cp - window / 2
         # Measurements and normalization
-        P, var_P, Ns, bg, var_bg, Nbg = total_power(img, x0, y0,
-                                                    r1=r1, r2=r2, r3=r3)
-        Imax = imgRes.max() - bg
-        var_Imax = Imax + (1. + 1./Nbg) * var_bg
-        Inorm = Imax / P
-        var_Inorm = Inorm**2 * (var_Imax/Imax**2 + var_P/P**2)
+        totp, var_totp, Nsig, bg, var_bg, Nbg = total_power(img, x0, y0,
+                                                            r1, r2, r3)
+        amp -= bg
+        var_amp = amp + (1. + 1. / Nbg) * var_bg
+        amp_norm = amp / totp
+        var_amp_norm = amp_norm ** 2 * (var_amp / amp ** 2
+                                        + var_totp / totp ** 2)
         # Saving to containers
-        parameters.iloc[i] = Imax, x0, y0, bg, P, Inorm
-        variances.iloc[i] = var_Imax, var_bg, var_P, var_Inorm
+        parameters.iloc[i] = x0, y0, amp, bg, totp, amp_norm
+        variances.iloc[i] = var_amp, var_bg, var_totp, var_amp_norm
+
     if print_output:
         print('parameters:\n')
         print(parameters)
