@@ -1,5 +1,7 @@
 import numpy as np
 from numpy.testing import *
+import pandas as pd
+import pandas.util.testing as pdt
 import phase_ret3 as ph
 import nose
 
@@ -83,11 +85,12 @@ class TestTotalPower:
         amp = 32000.
         s = 10.
         y, x = np.indices((N,N))
-        r2 = (x - N / 2) ** 2 + (y - N / 2) ** 2
+        dx, dy = 5.27, -3.78
+        r2 = (x - (N / 2 - dx)) ** 2 + (y - (N / 2 - dy)) ** 2
         gauss = amp * np.exp(-r2 / 2 / s ** 2)
         self.totp = gauss.sum()
         img = self.bg +  gauss
-        self.result = ph.total_power(img, N/2, N/2,
+        self.result = ph.total_power(img, N/2 - dx, N/2 - dy,
                                      r1=100, r2=200, r3=300, Xi=x, Yi=y)
 
     def test_background(self):
@@ -102,14 +105,15 @@ class TestLocatePeak:
 
     def setup(self):
         Nx, Ny = 32, 64
-        self.amp, s = 32000., 10.
+        self.amp = 32000.
+        s = 10.
         y, x = np.indices((Ny, Nx))
         self.res = 16
         max_delta = 3.
         self.x0 = Nx/2 + (np.random.rand() - .5) * max_delta
         self.y0 = Ny/2 + (np.random.rand() - .5) * max_delta
-        r2 = (x - self.x0) ** 2 + (y -self.y0) ** 2
-        self.img = self.amp * np.exp(-r2 / 2 / s ** 2)
+        r_sq = (x - self.x0) ** 2 + (y -self.y0) ** 2
+        self.img = self.amp * np.exp(-r_sq / 2 / s ** 2)
         self.result = ph.locate_peak(self.img, self.res)
 
     def test_x(self):
@@ -119,7 +123,68 @@ class TestLocatePeak:
         assert_array_less(np.abs(self.y0 - self.result[1]), 1./self.res)
 
     def test_amp(self):
-        assert_approx_equal(self.result[2], self.amp, significant=4)
+        assert_approx_equal(self.result[2], self.amp, significant=3)
+
+
+class TestAnalyzePeaks:
+
+    def setup(self):
+        N = 512
+        n = 3
+        window = 32
+        self.res = 16
+        r1 = 100
+        r2 = 200
+        r3 = 300
+        amp0 = 20000.
+        bg0 = 1200.
+        s0 = 10.
+        max_delta_pos = 30.
+        max_delta_amp = 10000.
+        max_delta_bg = 500.
+        max_delta_s = 5.
+        y, x = np.indices((N, N))
+        self.imgs = np.ones((n, N, N), dtype=np.float64)
+        self.reference_df = pd.DataFrame(index=range(n),
+                                         columns=['x0', 'y0', 'amp', 'bg',
+                                                  'tot power', 'norm amp'],
+                                         dtype=np.float64)
+        for i in range(n):
+            x0 = N/2 + (np.random.rand() - .5) * max_delta_pos
+            y0 = N/2 + (np.random.rand() - .5) * max_delta_pos
+            r_sq = (x - x0) ** 2 + (y -y0) ** 2
+            amp = amp0 + (np.random.rand() - .5) * max_delta_amp
+            s = s0 + (np.random.rand() - .5) * max_delta_s
+            bg = bg0 + (np.random.rand() - .5) * max_delta_bg
+            gauss = amp * np.exp(-r_sq / 2 / s ** 2)
+            totp = gauss.sum()
+            self.imgs[i] = gauss + bg
+            self.reference_df.iloc[i] = x0, y0, amp, bg, totp, amp / totp
+        self.result_df = ph.analyze_peaks(self.imgs, window, self.res,
+                                          r1, r2, r3, print_output=False)[0]
+
+    def test_pos(self):
+        assert_array_less(np.abs(self.result_df.loc[:,'x0':'y0'] -
+                                 self.reference_df.loc[:,'x0':'y0']).as_matrix(),
+                                 1./self.res)
+
+    def test_amp(self):
+        pdt.assert_almost_equal(self.result_df['amp'], self.reference_df['amp'],
+                                check_less_precise=3)
+
+    def test_bg(self):
+        pdt.assert_almost_equal(self.result_df['bg'], self.reference_df['bg'],
+                                check_less_precise=3)
+
+    def test_totp(self):
+        pdt.assert_almost_equal(self.result_df['tot power'],
+                                self.reference_df['tot power'],
+                                check_less_precise=3)
+
+    def test_norm(self):
+        pdt.assert_almost_equal(self.result_df['norm amp'],
+                                self.reference_df['norm amp'],
+                                check_less_precise=3)
 
 
 # Run the tests!
