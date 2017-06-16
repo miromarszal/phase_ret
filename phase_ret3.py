@@ -24,7 +24,7 @@ try:
     TIFF_LOADED = True
 except ImportError:
     TIFF_LOADED = False
-    print('Failed to import tifffile. Store Tiff stacks in Numpy arrays.')
+    print('Failed to import tifffile.')
 
 
 def circle(x0, y0, r, L):
@@ -203,11 +203,12 @@ def analyze_peaks(stack, window, res,
                            index=np.arange(len(stack)), dtype='float64')
     variances = DataFrame(columns=['amp', 'bg', 'tot power', 'norm amp'],
                           index=np.arange(len(stack)), dtype='float64')
+    if TIFF_LOADED and isinstance(stack, tifffile.TiffFile):
+        stack = stack.asarray()
+    Yi, Xi = np.indices(stack[0].shape)
 
     # Loop over all images in the stack
     for i, img in enumerate(stack):
-        if TIFF_LOADED and isinstance(stack, tifffile.TiffFile):
-            img = img.asarray()
         y0Cp, x0Cp = extrema(img)[3]  # Coarse maximum location
         imgCp = crop(img, x0Cp, y0Cp, window)  # Windowing
         # Image resampling, getting the sub-pixel peak position
@@ -217,7 +218,7 @@ def analyze_peaks(stack, window, res,
         y0 += y0Cp - window / 2
         # Measurements and normalization
         totp, var_totp, Nsig, bg, var_bg, Nbg = total_power(img, x0, y0,
-                                                            r1, r2, r3)
+                                                            r1, r2, r3, Xi, Yi)
         amp -= bg
         var_amp = amp + (1. + 1. / Nbg) * var_bg
         amp_norm = amp / totp
