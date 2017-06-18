@@ -164,7 +164,7 @@ def locate_peak(img, res=16):
 
 
 def analyze_peaks(stack, window, res,
-                  r1=100, r2=250, r3=300, print_output=True):
+                  r1=100, r2=250, r3=300, index=None, print_output=True):
     """Finds peaks in a Tiff stack and does several measurements.
 
     Accepts a TiffFile stack and performs image analysis on it,
@@ -198,11 +198,12 @@ def analyze_peaks(stack, window, res,
     norm amp   -- peak amplitude of the resampled image normalized
                   to the total power
     """
+    if index is None:
+        index = np.arange(len(stack))
     parameters = DataFrame(columns=['x0', 'y0', 'amp', 'bg', 'tot power',
-                                    'norm amp'],
-                           index=np.arange(len(stack)), dtype='float64')
+                                    'norm amp'], index=index, dtype='float64')
     variances = DataFrame(columns=['amp', 'bg', 'tot power', 'norm amp'],
-                          index=np.arange(len(stack)), dtype='float64')
+                          index=index, dtype='float64')
     if TIFF_LOADED and isinstance(stack, tifffile.TiffFile):
         stack = stack.asarray()
     Yi, Xi = np.indices(stack[0].shape)
