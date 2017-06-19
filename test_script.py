@@ -91,7 +91,7 @@ class TestTotalPower:
         self.totp = gauss.sum()
         img = self.bg +  gauss
         self.result = ph.total_power(img, N/2 - dx, N/2 - dy,
-                                     r1=100, r2=200, r3=300, Xi=x, Yi=y)
+                                     r1=100, r2=200, r3=300, x=x, y=y)
 
     def test_background(self):
         assert_almost_equal(self.result[3], self.bg)

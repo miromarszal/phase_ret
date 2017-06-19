@@ -101,7 +101,7 @@ def CSF(x, y, r0):
     return csf
 
 
-def total_power(img, x0, y0, r1=100, r2=250, r3=300, Xi=None, Yi=None):
+def total_power(img, x0, y0, r1=100, r2=250, r3=300, x=None, y=None):
     """Calculates the total power of an image in a circular region.
 
     The algorithm sums all the pixel values from the image inside a
@@ -113,7 +113,7 @@ def total_power(img, x0, y0, r1=100, r2=250, r3=300, Xi=None, Yi=None):
         img: An image to be analyzed (numpy.array).
         x0, y0: Peak coordinates.
         r1, r2, r3: Radii for sectioning the image.
-        Xi, Yi: Pixel coordnate arrays, to speed up the calculation.
+        x, y: Pixel coordnate arrays, to speed up the calculation.
 
     Returns a dict of results:
         totp: The total power.
@@ -123,12 +123,12 @@ def total_power(img, x0, y0, r1=100, r2=250, r3=300, Xi=None, Yi=None):
         var_bg: Variance of the background level.
         Nbg: Number of background pixels used in the calculation.
     """
-    if Xi is None or Yi is None:
-        Yi, Xi = np.indices(img.shape)
+    if x is None or y is None:
+        y, x = np.indices(img.shape)
     # Sectioning the image into the signal and background parts
-    img_sig = img[(Xi - x0) ** 2 + (Yi - y0) ** 2 <= r1 ** 2]
-    img_bg = img[((Xi - x0) ** 2 + (Yi - y0) ** 2 <= r3 ** 2)
-                 * ((Xi - x0) ** 2 + (Yi - y0) ** 2 >= r2 ** 2)]
+    img_sig = img[(x - x0) ** 2 + (y - y0) ** 2 <= r1 ** 2]
+    img_bg = img[((x - x0) ** 2 + (y - y0) ** 2 <= r3 ** 2)
+                 * ((x - x0) ** 2 + (y - y0) ** 2 >= r2 ** 2)]
     Nsig = img_sig.size
     Nbg = img_bg.size
     # Estimating the background and the total power
@@ -204,7 +204,7 @@ def analyze_peaks(stack, window, res,
                           index=index, dtype='float64')
     if TIFF_LOADED and isinstance(stack, tifffile.TiffFile):
         stack = stack.asarray()
-    Yi, Xi = np.indices(stack[0].shape)
+    y, x = np.indices(stack[0].shape)
 
     # Loop over all images in the stack
     for i, img in enumerate(stack):
@@ -217,7 +217,7 @@ def analyze_peaks(stack, window, res,
         y0 += y0Cp - window / 2
         # Measurements and normalization
         totp, var_totp, Nsig, bg, var_bg, Nbg = total_power(img, x0, y0,
-                                                            r1, r2, r3, Xi, Yi)
+                                                            r1, r2, r3, x, y)
         amp -= bg
         var_amp = amp + (1. + 1. / Nbg) * var_bg
         amp_norm = amp / totp
