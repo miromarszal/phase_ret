@@ -13,8 +13,6 @@ from scipy.ndimage import extrema
 from scipy.special import j1
 from scipy.signal import resample
 from pandas import DataFrame
-import sys
-fac = np.math.factorial
 
 # Optionally import the tifffile module. It provides the Tiff stack
 # functionality.  If not available, Tiff stacks will have to be
