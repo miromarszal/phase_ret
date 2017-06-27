@@ -354,3 +354,66 @@ class Errf_FFTW(Errf):
                                                                   * self.Tkconj)
         dE = 2. * np.imag(Gj * np.sum(Gwjk.conj(), axis=0))
         return E, dE.ravel()
+
+
+class Errf_CUDA(Errf):
+    """Subclass of Errf utilizing CUDA-accelerated computation.
+
+    Uses pycuda and skcuda to facilitate integration with Python.
+    Employs kernels defined in 'errf_kernels.cu'.
+    """
+
+    def __init__(self, zj, zk, Fj, Fk, wl):
+        Errf.__init__(self, zj, zk, Fj, Fk, wl)
+        self.Fj = gpa.to_gpu(self.Fj)
+        self.Fk = gpa.to_gpu(self.Fk)
+        self.Tk = gpa.to_gpu(self.Tk)
+        self.Tkconj = gpa.to_gpu(self.Tkconj)
+        self.ph = gpa.empty_like(self.Fj)
+        self.Gj = gpa.empty((self.N, self.N), np.complex128)
+        self.Gkj = gpa.empty_like(self.Tk)
+        self.Gwkj = gpa.empty_like(self.Tk)
+        self.Gwjk = gpa.empty_like(self.Tk)
+        self.Earr = gpa.empty_like(self.Fk)
+        self.Ered = gpa.empty(self.N, np.float64)
+        self.E = gpa.empty(1, np.float64)
+        self.dE = gpa.empty_like(self.Fj)
+        self.temp1 = gpa.empty_like(self.Gj)
+        self.tempn = gpa.empty_like(self.Tk)
+
+        self.plan_fft2single = skfft.Plan(self.Gj.shape, self.Gj.dtype,
+                                          self.Gj.dtype)
+        self.plan_fft2batch = skfft.Plan(self.Gj.shape, self.Gj.dtype,
+                                         self.Gj.dtype, batch=self.num)
+
+        self.get_Gj = kernels.get_function('get_Gj')
+        self.mult_complex_1to1 = kernels.get_function('mult_complex_1to1')
+        self.mult_complex_1ton = kernels.get_function('mult_complex_1ton')
+        self.get_E_Gwkj = kernels.get_function('get_E_Gwkj')
+        self.sum_E = kernels.get_function('sum_E')
+        self.sum_Etot = kernels.get_function('sum_Etot')
+        self.get_dE = kernels.get_function('get_dE')
+
+    def __call__(self, ph):
+        self.ph.set(ph)
+        self.get_Gj(self.Fj, self.ph, self.Gj, block=(self.N,1,1),
+                    grid=(self.N,1))
+        skfft.fft(self.Gj, self.temp1, self.plan_fft2single)
+        self.mult_complex_1ton(self.temp1, self.Tk, self.tempn,
+                               block=(self.N,1,1), grid=(self.N,self.num))
+        skfft.ifft(self.tempn, self.Gkj, self.plan_fft2batch, scale=True)
+        self.get_E_Gwkj(self.Fk, self.Gkj, self.Earr, self.Gwkj,
+                        block=(self.N,1,1), grid=(self.N,self.num))
+        self.sum_E(np.uint32(self.num), self.Earr, block=(self.N,1,1),
+                   grid=(self.N,1))
+        self.sum_Etot(self.Earr, self.Ered, block=(self.N//2,1,1),
+                      grid=(self.N,1), shared=self.N//2*NB64)
+        self.sum_Etot(self.Ered, self.E, block=(self.N//2,1,1),
+                      shared=self.N//2*NB64)
+        skfft.fft(self.Gwkj, self.tempn, self.plan_fft2batch)
+        self.mult_complex_1to1(self.tempn, self.Tkconj, self.Gwkj,
+                               block=(self.N,1,1), grid=(self.N,self.num))
+        skfft.ifft(self.Gwkj, self.Gwjk, self.plan_fft2batch, scale=True)
+        self.get_dE(np.uint32(self.num), self.Gj, self.Gwjk, self.dE,
+                    block=(self.N,1,1), grid=(self.N,1))
+        return self.E.get()[0], self.dE.get().ravel()
