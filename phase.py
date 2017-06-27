@@ -111,8 +111,8 @@ def crop(img, x0, y0, s):
     Returns:
         A cropped view of the image.
     """
-    x0 = round(x0) - s // 2
-    y0 = round(y0) - s // 2
+    x0 = int(round(x0)) - s // 2
+    y0 = int(round(y0)) - s // 2
     img2 = img[y0:y0+s, x0:x0+s]
     return img2
 
