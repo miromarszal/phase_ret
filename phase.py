@@ -267,3 +267,51 @@ def analyze_peaks(stack, window, res,
         print('\nvariances:\n')
         print(variances)
     return parameters, variances
+
+
+class Errf(object):
+    """Error function for phase retrieval via non-linear optimization.
+
+    Defines a callable compatible with the scipy.optimize.minimize function,
+    i.e. accepting a parameter vector (phase of a complex field) and returning
+    the error metric and the jacobian.
+
+    Args:
+        zj: Position of the master plane in image-space pixels.
+        zk: ndarray of slave plane positions in image-space pixels.
+        Fj: Amplitude distribution in the master plane.
+        Fk: Amplitude distributions in slave planes.
+        wl: Light wavelength in image-space pixels.
+
+    Attributes:
+        zj, zk, Fj, Fk: See above.
+        N: Width of a single image, necessary to define transforms.
+        num: Number of slave planes.
+        Tk: Transfer array for angular spectrum propagation from the
+            master plane to slave planes.
+        Tkconj: Complex conjugate of Tk, defines inverse transforms.
+    """
+
+    def __init__(self, zj, zk, Fj, Fk, wl):
+        self.zj = zj
+        self.zk = zk
+        self.Fj = Fj
+        self.Fk = Fk
+        self.N = self.Fj.shape[0]
+        self.num = len(Fk)
+        y, x = np.indices((self.N, self.N))
+        x = fft.ifftshift(x).astype(np.float64) - self.N/2
+        y = fft.ifftshift(y).astype(np.float64) - self.N/2
+        self.Tk = np.exp(2.j * np.pi * (self.zk - self.zj)[:,None,None]
+                             * np.sqrt(1. / wl ** 2 - (x ** 2 + y ** 2)
+                                                    / self.N ** 2))
+        self.Tkconj = self.Tk.conj()
+
+    def __call__(self, ph):
+        Gj = self.Fj * np.exp(1.j * ph.reshape((self.N, self.N)))
+        Gkj = fft.ifft2(fft.fft2(Gj) * self.Tk)
+        E = np.sum((self.Fk - np.abs(Gkj)) ** 2)
+        Gwjk = fft.ifft2(fft.fft2((self.Fk * Gkj / np.abs(Gkj) - Gkj))
+                         * self.Tkconj)
+        dE = 2. * np.imag(Gj * np.sum(Gwjk.conj(), axis=0))
+        return E, dE.ravel()
