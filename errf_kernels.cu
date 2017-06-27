@@ -69,6 +69,5 @@ __global__ void get_dE(int num, cuDoubleComplex *Gj, cuDoubleComplex *Gwjk, doub
         reGwjk += Gwjk[idx + s * blockDim.x * gridDim.x].x;
         imGwjk -= Gwjk[idx + s * blockDim.x * gridDim.x].y;
     }
-    //dE[idx] = cuCimag(cuCmul(Gj[idx], make_cuDoubleComplex(reGwjk, imGwjk))) * 2;
     dE[idx] = (Gj[idx].x * imGwjk + Gj[idx].y * reGwjk) * 2;
 }
