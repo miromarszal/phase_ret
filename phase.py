@@ -274,7 +274,8 @@ class Errf(object):
 
     Defines a callable compatible with the scipy.optimize.minimize function,
     i.e. accepting a parameter vector (phase of a complex field) and returning
-    the error metric and the jacobian.
+    the error metric and the gradient.  This is the core class using NumPy
+    and SciPy for calculations.
 
     Args:
         zj: Position of the master plane in image-space pixels.
@@ -308,6 +309,14 @@ class Errf(object):
         self.Tkconj = self.Tk.conj()
 
     def __call__(self, ph):
+        """Calculates the error metric for given phase estimate.
+        Args:
+            ph: Phase in the master plane.
+
+        Returns:
+            E: The error metric.
+            dE: Gradient of the error metric.
+        """
         Gj = self.Fj * np.exp(1.j * ph.reshape((self.N, self.N)))
         Gkj = fft.ifft2(fft.fft2(Gj) * self.Tk)
         E = np.sum((self.Fk - np.abs(Gkj)) ** 2)
