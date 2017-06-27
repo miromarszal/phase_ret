@@ -6,7 +6,6 @@ import phase_ret3 as ph
 import nose
 
 
-# Testing the circle function.
 class TestCircle:
 
     def setup(self):
@@ -22,7 +21,6 @@ class TestCircle:
         assert_equal(self.circ[12,8], .5)
 
 
-# Testing the crop function.
 class TestCrop:
 
     def setup(self):
@@ -51,7 +49,6 @@ class TestCrop:
                            ph.crop(self.arr, self.x0+.25, self.y0+.75, self.s+1))
 
 
-# Testing the CSF function
 class TestCSF:
 
     def setup(self):
@@ -76,7 +73,6 @@ class TestCSF:
         assert_almost_equal(ph.CSF(self.x-8, self.y-8, 4)[12, 8], 0)
 
 
-# Testing the total_power function
 class TestTotalPower:
 
     def setup(self):
@@ -100,7 +96,6 @@ class TestTotalPower:
         assert_almost_equal(self.result[0], self.totp)
 
 
-# Testing the locate_peak function.
 class TestLocatePeak:
 
     def setup(self):
