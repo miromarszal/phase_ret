@@ -11,6 +11,7 @@ import numpy as np
 from scipy.ndimage import extrema
 from scipy.special import j1
 from scipy.signal import resample
+import scipy.fftpack as spfft
 from pandas import DataFrame
 import os
 
@@ -38,7 +39,7 @@ try:
     import pycuda.gpuarray as gpa
     from pycuda.compiler import SourceModule
     from skcuda import fft as skfft
-    with open('errf_kernel.cu') as f:
+    with open('errf_kernels.cu') as f:
         kernels = SourceModule(f.read())
     CUDA_LOADED = True
 except ImportError:
@@ -46,7 +47,7 @@ except ImportError:
     print('Failed to import pycuda/skcuda.')
 except FileNotFoundError:
     CUDA_LOADED = False
-    print('Failed to load errf_kernel.cu.')
+    print('Failed to load errf_kernels.cu.')
 except drv.CompileError as err:
     CUDA_LOADED = False
     print('Failed to compile kernels:')
