@@ -2,7 +2,7 @@ import numpy as np
 from numpy.testing import *
 import pandas as pd
 import pandas.util.testing as pdt
-import phase_ret3 as ph
+import phase as ph
 import nose
 
 
@@ -180,6 +180,46 @@ class TestAnalyzePeaks:
         pdt.assert_almost_equal(self.result_df['norm amp'],
                                 self.reference_df['norm amp'],
                                 check_less_precise=3)
+
+
+class TestErrfFFTW:
+
+    def setup(self):
+        if not ph.FFTW_LOADED: raise nose.SkipTest('FFTW not loaded.')
+        F = rand(4, 256, 256)
+        Z = rand(4)
+        wl = rand()
+        ph0 = rand(256, 256)
+        errf_numpy = ph.Errf(Z[0], Z[1:], F[0], F[1:], wl)
+        errf_fftw = ph.Errf_FFTW(Z[0], Z[1:], F[0], F[1:], wl)
+        self.E_numpy, self.dE_numpy = errf_numpy(ph0)
+        self.E_fftw, self.dE_fftw = errf_fftw(ph0)
+
+    def test_E(self):
+        assert_approx_equal(self.E_fftw, self.E_numpy)
+
+    def test_dE(self):
+        assert_allclose(self.dE_fftw, self.dE_numpy)
+
+
+class TestErrfCUDA:
+
+    def setup(self):
+        if not ph.CUDA_LOADED: raise nose.SkipTest('CUDA not loaded.')
+        F = rand(4, 256, 256)
+        Z = rand(4)
+        wl = rand()
+        ph0 = rand(256, 256)
+        errf_numpy = ph.Errf(Z[0], Z[1:], F[0], F[1:], wl)
+        errf_cuda = ph.Errf_CUDA(Z[0], Z[1:], F[0], F[1:], wl)
+        self.E_numpy, self.dE_numpy = errf_numpy(ph0)
+        self.E_cuda, self.dE_cuda = errf_cuda(ph0)
+
+    def test_E(self):
+        assert_approx_equal(self.E_cuda, self.E_numpy)
+
+    def test_dE(self):
+        assert_allclose(self.dE_cuda, self.dE_numpy)
 
 
 # Run the tests!
