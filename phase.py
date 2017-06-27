@@ -275,7 +275,7 @@ class Errf(object):
     Defines a callable compatible with the scipy.optimize.minimize function,
     i.e. accepting a parameter vector (phase of a complex field) and returning
     the error metric and the gradient.  This is the core class using NumPy
-    and SciPy for calculations.
+    and SciPy for calculations.  Subclassed by Errf_FFTW and Errf_CUDA.
 
     Args:
         zj: Position of the master plane in image-space pixels.
@@ -365,6 +365,8 @@ class Errf_CUDA(Errf):
 
     def __init__(self, zj, zk, Fj, Fk, wl):
         Errf.__init__(self, zj, zk, Fj, Fk, wl)
+
+        ### Arrays to store intermediate results on the GPU.
         self.Fj = gpa.to_gpu(self.Fj)
         self.Fk = gpa.to_gpu(self.Fk)
         self.Tk = gpa.to_gpu(self.Tk)
@@ -381,11 +383,12 @@ class Errf_CUDA(Errf):
         self.temp1 = gpa.empty_like(self.Gj)
         self.tempn = gpa.empty_like(self.Tk)
 
-        self.plan_fft2single = skfft.Plan(self.Gj.shape, self.Gj.dtype,
-                                          self.Gj.dtype)
-        self.plan_fft2batch = skfft.Plan(self.Gj.shape, self.Gj.dtype,
-                                         self.Gj.dtype, batch=self.num)
+        ### FFT plans.
+        self.fft21 = skfft.Plan(self.Gj.shape, self.Gj.dtype, self.Gj.dtype)
+        self.fft2n = skfft.Plan(self.Gj.shape, self.Gj.dtype, self.Gj.dtype,
+                                batch=self.num)
 
+        ### Functions from 'errf_kernels.cu'.
         self.get_Gj = kernels.get_function('get_Gj')
         self.mult_complex_1to1 = kernels.get_function('mult_complex_1to1')
         self.mult_complex_1ton = kernels.get_function('mult_complex_1ton')
@@ -395,25 +398,31 @@ class Errf_CUDA(Errf):
         self.get_dE = kernels.get_function('get_dE')
 
     def __call__(self, ph):
+        ### Preparing stuff.
         self.ph.set(ph)
         self.get_Gj(self.Fj, self.ph, self.Gj, block=(self.N,1,1),
                     grid=(self.N,1))
-        skfft.fft(self.Gj, self.temp1, self.plan_fft2single)
+        skfft.fft(self.Gj, self.temp1, self.fft21)
         self.mult_complex_1ton(self.temp1, self.Tk, self.tempn,
                                block=(self.N,1,1), grid=(self.N,self.num))
-        skfft.ifft(self.tempn, self.Gkj, self.plan_fft2batch, scale=True)
+        skfft.ifft(self.tempn, self.Gkj, self.fft2n, scale=True)
         self.get_E_Gwkj(self.Fk, self.Gkj, self.Earr, self.Gwkj,
                         block=(self.N,1,1), grid=(self.N,self.num))
+
+        ### Summing the error.
         self.sum_E(np.uint32(self.num), self.Earr, block=(self.N,1,1),
                    grid=(self.N,1))
         self.sum_Etot(self.Earr, self.Ered, block=(self.N//2,1,1),
                       grid=(self.N,1), shared=self.N//2*NB64)
         self.sum_Etot(self.Ered, self.E, block=(self.N//2,1,1),
                       shared=self.N//2*NB64)
-        skfft.fft(self.Gwkj, self.tempn, self.plan_fft2batch)
+
+        ### Calculating the gradient.
+        skfft.fft(self.Gwkj, self.tempn, self.fft2n)
         self.mult_complex_1to1(self.tempn, self.Tkconj, self.Gwkj,
                                block=(self.N,1,1), grid=(self.N,self.num))
-        skfft.ifft(self.Gwkj, self.Gwjk, self.plan_fft2batch, scale=True)
+        skfft.ifft(self.Gwkj, self.Gwjk, self.fft2n, scale=True)
         self.get_dE(np.uint32(self.num), self.Gj, self.Gwjk, self.dE,
                     block=(self.N,1,1), grid=(self.N,1))
+                    
         return self.E.get()[0], self.dE.get().ravel()
