@@ -323,6 +323,34 @@ class Errf(object):
         Gkj = spfft.ifft2(spfft.fft2(Gj) * self.Tk)
         E = np.sum((self.Fk - np.abs(Gkj)) ** 2)
         Gwjk = spfft.ifft2(spfft.fft2((self.Fk * Gkj / np.abs(Gkj) - Gkj))
-                           * self.Tkconj)
+                                                                  * self.Tkconj)
+        dE = 2. * np.imag(Gj * np.sum(Gwjk.conj(), axis=0))
+        return E, dE.ravel()
+
+
+class Errf_FFTW(Errf):
+    """Subclass of Errf utilizing pyfftw for faster transforms.
+
+    Attributes:
+        fft21: 2D FFT of a single array.
+        fft2n: Batched 2D FFT of several arrays.
+        ifft2n: Batched 2D IFFT.
+    """
+
+    def __init__(self, zj, zk, Fj, Fk, wl):
+        Errf.__init__(self, zj, zk, Fj, Fk, wl)
+        self.fft21 = pyfftw.builders.fft2(self.Fj.astype(np.complex128),
+                                          threads=NUM_CPU)
+        self.fft2n = pyfftw.builders.fft2(self.Fk.astype(np.complex128),
+                                          threads=NUM_CPU)
+        self.ifft2n = pyfftw.builders.ifft2(self.Fk.astype(np.complex128),
+                                            threads=NUM_CPU)
+
+    def __call__(self, ph):
+        Gj = self.Fj * np.exp(1.j * ph.reshape((self.N, self.N)))
+        Gkj = self.ifft2n(self.fft21(Gj) * self.Tk)
+        E = np.sum((self.Fk - np.abs(Gkj)) ** 2)
+        Gwjk = self.ifft2n(self.fft2n((self.Fk * Gkj / np.abs(Gkj) - Gkj))
+                                                                  * self.Tkconj)
         dE = 2. * np.imag(Gj * np.sum(Gwjk.conj(), axis=0))
         return E, dE.ravel()
