@@ -1,9 +1,8 @@
 ﻿# -*- coding: utf-8 -*-
-"""phase_ret3.py
+"""phase.py
 
 Utility functions and classes for phase retrieval, image analysis
 and Zernike polynomial fitting.
-An improved version of phase_ret.py transferred to Python 3.
 
 author: Miroslaw Marszalek
 """
@@ -13,16 +12,50 @@ from scipy.ndimage import extrema
 from scipy.special import j1
 from scipy.signal import resample
 from pandas import DataFrame
+import os
 
-# Optionally import the tifffile module. It provides the Tiff stack
-# functionality.  If not available, Tiff stacks will have to be
-# loaded into Numpy arrays another way.
+# Optionally import tifffile module for reading TIFF stacks.
 try:
     import tifffile
     TIFF_LOADED = True
 except ImportError:
     TIFF_LOADED = False
     print('Failed to import tifffile.')
+
+# Optionally import pyfftw for faster FFTs.
+try:
+    import pyfftw
+    FFTW_LOADED = True
+except ImportError:
+    FFTW_LOADED = False
+    print('Failed to import pyfftw.')
+
+# Optionally import pycuda and skcuda for accelerated calculations on GPU
+# and compile the kernels.
+try:
+    import pycuda.autoinit
+    import pycuda.driver as drv
+    import pycuda.gpuarray as gpa
+    from pycuda.compiler import SourceModule
+    from skcuda import fft as skfft
+    with open('errf_kernel.cu') as f:
+        kernels = SourceModule(f.read())
+    CUDA_LOADED = True
+except ImportError:
+    CUDA_LOADED = False
+    print('Failed to import pycuda/skcuda.')
+except FileNotFoundError:
+    CUDA_LOADED = False
+    print('Failed to load errf_kernel.cu.')
+except drv.CompileError as err:
+    CUDA_LOADED = False
+    print('Failed to compile kernels:')
+    print(err.msg)
+    print('command: ' + ' '.join(err.command_line))
+
+# Other constants.
+NB64 = np.nbytes[np.float64]
+NUM_CPU = os.cpu_count()
 
 
 def circle(x0, y0, r, L):
@@ -204,7 +237,7 @@ def analyze_peaks(stack, window, res,
                           index=index, dtype='float64')
     if TIFF_LOADED and isinstance(stack, tifffile.TiffFile):
         stack = stack.asarray()
-    y, x = np.indices(stack[0].shape)
+    #y, x = np.indices(stack[0].shape)
 
     # Loop over all images in the stack
     for i, img in enumerate(stack):
@@ -217,7 +250,7 @@ def analyze_peaks(stack, window, res,
         y0 += y0Cp - window / 2
         # Measurements and normalization
         totp, var_totp, Nsig, bg, var_bg, Nbg = total_power(img, x0, y0,
-                                                            r1, r2, r3, x, y)
+                                                            r1, r2, r3)#, x, y)
         amp -= bg
         var_amp = amp + (1. + 1. / Nbg) * var_bg
         amp_norm = amp / totp
