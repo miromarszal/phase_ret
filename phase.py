@@ -298,13 +298,13 @@ class Errf(object):
     def __init__(self, zj, zk, Fj, Fk, wl):
         self.zj = zj
         self.zk = zk
-        self.Fj = spfft.ifftshift(Fj)
-        self.Fk = spfft.ifftshift(Fk, axes=(-2,-1))
+        self.Fj = Fj
+        self.Fk = Fk
         self.N = self.Fj.shape[0]
         self.num = len(Fk)
         y, x = np.indices((self.N, self.N))
-        x = spfft.ifftshift(x).astype(np.float64) - self.N/2
-        y = spfft.ifftshift(y).astype(np.float64) - self.N/2
+        x = spfft.fftshift(x - self.N/2)
+        y = spfft.fftshift(y - self.N/2)
         self.Tk = np.exp(2.j * np.pi * (self.zk - self.zj)[:,None,None]
                              * np.sqrt(1. / wl ** 2 - (x ** 2 + y ** 2)
                                                     / self.N ** 2))
@@ -314,8 +314,7 @@ class Errf(object):
         """Calculates the error metric for given phase estimate.
 
         Args:
-            ph: Phase in the master plane. Must be fft-shifted (DC component
-                in the [0,0] element).
+            ph: Phase in the master plane.
 
         Returns:
             E: The error metric.
@@ -495,7 +494,7 @@ class Transforms:
             U2 = 1.j * self.N * ph1 * self.ifft(U * ph2)
         return spfft.fftshift(U2) if shift else U2
 
-    def asp(self, U, z, wl, shift=True):
+    def asp(self, U, z, wl):
         """Light propagation according to the angular spectrum propagation.
 
         In this case the pixel size is the same in both spaces and
@@ -511,15 +510,18 @@ class Transforms:
         Returns:
             A complex NxN array representing the transformed field.
         """
-        if shift:
-            U = spfft.ifftshift(U)
         T = np.exp(2.j * np.pi * z * np.sqrt(1. / wl ** 2 - self.r2 / self.N ** 2))
         U2 = self.ifft(self.fft(U) * T)
-        return spfft.fftshift(U2) if shift else U2
+        return U2
 
 
 class Transforms_FFTW(Transforms):
-    """Subclass of Transforms employing FFTW for faster computation."""
+    """Subclass of Transforms employing FFTW for faster computation.
+
+    TO DO: The asp method consistently fails the tests. Probably
+        related to the memory management of pyfftw. In normal usage
+        everything seems to work fine.
+    """
 
     def __init__(self, N):
         Transforms.__init__(self, N)
