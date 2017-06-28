@@ -185,11 +185,12 @@ class TestAnalyzePeaks:
 class TestErrfFFTW:
 
     def setup(self):
-        if not ph.FFTW_LOADED: raise nose.SkipTest('FFTW not loaded.')
-        F = rand(4, 256, 256)
-        Z = rand(4)
-        wl = rand()
-        ph0 = rand(256, 256)
+        if not ph.FFTW_LOADED:
+            raise nose.SkipTest('FFTW not loaded.')
+        F = np.random.rand(4, 256, 256)
+        Z = np.random.rand(4)
+        wl = np.random.rand()
+        ph0 = np.random.rand(256, 256)
         errf_numpy = ph.Errf(Z[0], Z[1:], F[0], F[1:], wl)
         errf_fftw = ph.Errf_FFTW(Z[0], Z[1:], F[0], F[1:], wl)
         self.E_numpy, self.dE_numpy = errf_numpy(ph0)
@@ -205,11 +206,12 @@ class TestErrfFFTW:
 class TestErrfCUDA:
 
     def setup(self):
-        if not ph.CUDA_LOADED: raise nose.SkipTest('CUDA not loaded.')
-        F = rand(4, 256, 256)
-        Z = rand(4)
-        wl = rand()
-        ph0 = rand(256, 256)
+        if not ph.CUDA_LOADED:
+            raise nose.SkipTest('CUDA not loaded.')
+        F = np.random.rand(4, 256, 256)
+        Z = np.random.rand(4)
+        wl = np.random.rand()
+        ph0 = np.random.rand(256, 256)
         errf_numpy = ph.Errf(Z[0], Z[1:], F[0], F[1:], wl)
         errf_cuda = ph.Errf_CUDA(Z[0], Z[1:], F[0], F[1:], wl)
         self.E_numpy, self.dE_numpy = errf_numpy(ph0)
@@ -220,6 +222,45 @@ class TestErrfCUDA:
 
     def test_dE(self):
         assert_allclose(self.dE_cuda, self.dE_numpy)
+
+
+class TestTransformsFFTW:
+
+    def setup(self):
+        if not ph.FFTW_LOADED:
+            raise nose.SkipTest('FFTW not loaded.')
+        N = 256
+        self.U = np.random.rand(N, N) + 1.j * np.random.rand(N, N)
+        self.z = np.random.rand()
+        self.wl = np.random.rand()
+        self.trans_numpy = ph.Transforms(N)
+        self.trans_fftw = ph.Transforms_FFTW(N)
+
+    def test_fft(self):
+        fft_numpy = self.trans_numpy.fft(self.U)
+        fft_fftw = self.trans_fftw.fft(self.U)
+        assert_allclose(fft_fftw, fft_numpy)
+
+    def test_ifft(self):
+        ifft_numpy = self.trans_numpy.ifft(self.U)
+        ifft_fftw = self.trans_fftw.ifft(self.U)
+        assert_allclose(ifft_fftw, ifft_numpy)
+
+    def test_fraun(self):
+        fraun_numpy_pos = self.trans_numpy.fraun(self.U, self.z, self.wl, True)
+        fraun_fftw_pos = self.trans_numpy.fraun(self.U, self.z, self.wl, True)
+        fraun_numpy_neg = self.trans_fftw.fraun(self.U, -self.z, self.wl, True)
+        fraun_fftw_neg = self.trans_fftw.fraun(self.U, -self.z, self.wl, True)
+        assert_allclose(fraun_fftw_pos, fraun_numpy_pos)
+        assert_allclose(fraun_fftw_neg, fraun_numpy_neg)
+
+    def test_asp(self):
+        asp_numpy_pos = self.trans_numpy.asp(self.U, self.z, self.wl, True)
+        asp_fftw_pos = self.trans_numpy.asp(self.U, self.z, self.wl, True)
+        asp_numpy_neg = self.trans_fftw.asp(self.U, -self.z, self.wl, True)
+        asp_fftw_neg = self.trans_fftw.asp(self.U, -self.z, self.wl, True)
+        assert_allclose(asp_fftw_pos, asp_numpy_pos)
+        assert_allclose(asp_fftw_neg, asp_numpy_neg)
 
 
 # Run the tests!
