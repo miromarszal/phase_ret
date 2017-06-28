@@ -541,15 +541,27 @@ class Transforms_FFTW(Transforms):
 class Transforms_CUDA(Transforms):
     """Subclass of Transforms employing CUDA for faster computation.
 
-    TO DO: The same issue with threadblocks as in Errf_CUDA.
+    TO DO:
+        * FFT shifts are done in a weird way.
+        * Errors accumulate somewhere. Every now and then tests will fail
+            for the fraun function.
+        * The same issue with threadblocks as in Errf_CUDA.
     """
 
     def __init__(self, N):
         Transforms.__init__(self, N)
         self.Uin = gpa.empty((self.N, self.N), np.complex128)
         self.Uout = gpa.empty((self.N, self.N), np.complex128)
+        self.Utemp = gpa.empty((self.N, self.N), np.complex128)
+        self.r2_shift = gpa.to_gpu(spfft.fftshift(self.r2))
+        self.r2 = gpa.to_gpu(self.r2)
         self.fft_plan = skfft.Plan((self.N, self.N), np.complex128,
                                                      np.complex128)
+        self.fftshift = kernels.get_function('fftshift')
+        self.mult_T = kernels.get_function('mult_T')
+        self.mult_ph12 = kernels.get_function('mult_ph12')
+        self.mult_ph1 = kernels.get_function('mult_ph1')
+        self.mult_ph2 = kernels.get_function('mult_ph2')
 
     def fft(self, U):
         """Overrides Transforms.fft."""
@@ -561,4 +573,46 @@ class Transforms_CUDA(Transforms):
         """Overrides Transforms.ifft."""
         self.Uin.set(U)
         skfft.ifft(self.Uin, self.Uout, self.fft_plan, scale=True)
+        return self.Uout.get()
+
+    def fraun(self, U, z, wl, shift=True):
+        """Overrides Transforms.fraun"""
+        self.Uin.set(U)
+        if z>=0:
+            if shift:
+                self.fftshift(self.Uin, block=(self.N,1,1), grid=(self.N,1))
+                skfft.fft(self.Uin, self.Uout, self.fft_plan)
+                self.fftshift(self.Uout, block=(self.N,1,1), grid=(self.N,1))
+                self.mult_ph12(np.uint32(self.N), np.float64(z), np.float64(wl),
+                               self.r2_shift, self.Uout,
+                               block=(self.N,1,1), grid=(self.N,1))
+            else:
+                skfft.fft(self.Uin, self.Uout, self.fft_plan)
+                self.mult_ph12(np.uint32(self.N), np.float64(z), np.float64(wl),
+                               self.r2, self.Uout,
+                               block=(self.N,1,1), grid=(self.N,1))
+        else:
+            if shift:
+                self.mult_ph2(np.uint32(self.N), np.float64(z), np.float64(wl),
+                              self.r2_shift, self.Uin,
+                              block=(self.N,1,1), grid=(self.N,1))
+                self.fftshift(self.Uin, block=(self.N,1,1), grid=(self.N,1))
+                skfft.ifft(self.Uin, self.Uout, self.fft_plan, scale=True)
+                self.fftshift(self.Uout, block=(self.N,1,1), grid=(self.N,1))
+            else:
+                self.mult_ph2(np.uint32(self.N), np.float64(z), np.float64(wl),
+                              self.r2, self.Uin,
+                              block=(self.N,1,1), grid=(self.N,1))
+                skfft.ifft(self.Uin, self.Uout, self.fft_plan, scale=True)
+            self.mult_ph1(np.uint32(self.N), np.float64(z), np.float64(wl),
+                          self.Uout, block=(self.N,1,1), grid=(self.N,1))
+        return self.Uout.get()
+
+    def asp(self, U, z, wl, shift=True):
+        """Overrides Transforms.asp."""
+        self.Uin.set(U)
+        skfft.fft(self.Uin, self.Utemp, self.fft_plan)
+        self.mult_T(np.uint32(self.N), np.float64(z), np.float64(wl),
+                    self.r2, self.Utemp, block=(self.N,1,1), grid=(self.N,1))
+        skfft.ifft(self.Utemp, self.Uout, self.fft_plan, scale=True)
         return self.Uout.get()

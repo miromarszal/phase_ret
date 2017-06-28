@@ -293,6 +293,30 @@ class TestTransformsCUDA:
         ifft_cuda = self.trans_cuda.ifft(self.U)
         assert_allclose(ifft_cuda, ifft_numpy)
 
+    def test_fraun_shift(self):
+        fraun_numpy_pos = self.trans_numpy.fraun(self.U, self.z, self.wl, True)
+        fraun_cuda_pos = self.trans_cuda.fraun(self.U, self.z, self.wl, True)
+        fraun_numpy_neg = self.trans_numpy.fraun(self.U, -self.z, self.wl, True)
+        fraun_cuda_neg = self.trans_cuda.fraun(self.U, -self.z, self.wl, True)
+        assert_allclose(fraun_cuda_pos, fraun_numpy_pos)
+        assert_allclose(fraun_cuda_neg, fraun_numpy_neg)
+
+    def test_fraun_noshift(self):
+        fraun_numpy_pos = self.trans_numpy.fraun(self.U, self.z, self.wl, False)
+        fraun_cuda_pos = self.trans_cuda.fraun(self.U, self.z, self.wl, False)
+        fraun_numpy_neg = self.trans_numpy.fraun(self.U, -self.z, self.wl, False)
+        fraun_cuda_neg = self.trans_cuda.fraun(self.U, -self.z, self.wl, False)
+        assert_allclose(fraun_cuda_pos, fraun_numpy_pos)
+        assert_allclose(fraun_cuda_neg, fraun_numpy_neg)
+
+    def test_asp(self):
+        asp_numpy_pos = self.trans_numpy.asp(self.U, self.z, self.wl)
+        asp_cuda_pos = self.trans_cuda.asp(self.U, self.z, self.wl)
+        asp_numpy_neg = self.trans_numpy.asp(self.U, -self.z, self.wl)
+        asp_cuda_neg = self.trans_cuda.asp(self.U, -self.z, self.wl)
+        assert_allclose(asp_cuda_pos, asp_numpy_pos)
+        assert_allclose(asp_cuda_neg, asp_numpy_neg)
+
 
 # Run the tests!
 if __name__ == '__main__':
