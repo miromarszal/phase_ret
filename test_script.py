@@ -274,8 +274,8 @@ class TestTransformsFFTW:
 class TestTransformsCUDA:
 
     def setup(self):
-        if not ph.FFTW_LOADED:
-            raise nose.SkipTest('FFTW not loaded.')
+        if not ph.CUDA_LOADED:
+            raise nose.SkipTest('CUDA not loaded.')
         N = 256
         self.U = np.random.rand(N, N) + 1.j * np.random.rand(N, N)
         self.z = np.random.rand()

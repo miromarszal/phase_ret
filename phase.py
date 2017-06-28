@@ -176,7 +176,7 @@ def total_power(img, x0, y0, r1=100, r2=250, r3=300, x=None, y=None):
 
 
 def locate_peak(img, res=16):
-    """Locates the maximum in the image via Fourier resampling
+    """Locates the maximum in the image via Fourier resampling.
 
     Args:
         img: The image to be resampled.
@@ -405,7 +405,7 @@ class Errf_CUDA(Errf):
 
     def __call__(self, ph):
         ### Preparing stuff.
-        self.ph.set(ph)
+        self.ph.set(ph.reshape((self.N, self.N)))
         self.get_Gj(self.Fj, self.ph, self.Gj, block=(self.N,1,1),
                     grid=(self.N,1))
         skfft.fft(self.Gj, self.temp1, self.fft21)
