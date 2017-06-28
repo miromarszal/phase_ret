@@ -121,8 +121,7 @@ __global__ void fftshift(cuDoubleComplex *U)
     int i = threadIdx.x;
     int j = blockIdx.x;
     int idx = i + j * blockDim.x;
-    //double a = 1 - 2 * ((i + j) & 1);
-    double a = pow(-1.0, (i + j) & 1);
+    double a = 1 - 2 * ((i + j) & 1);
     U[idx].x *= a;
     U[idx].y *= a;
 }
