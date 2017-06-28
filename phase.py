@@ -455,13 +455,17 @@ class Transforms:
     def __init__(self, N):
         self.N = N
         # Defining FFTs
-        self.fft = spfft.fft2
-        self.ifft = spfft.ifft2
         # Coordinate arrays
         y, x = np.indices((N,N))
         x = spfft.ifftshift(x).astype(float) - N/2
         y = spfft.ifftshift(y).astype(float) - N/2
         self.r2 = x ** 2 + y ** 2
+
+    def fft(self, U):
+        return spfft.fft2(U)
+
+    def ifft(self, U):
+        return spfft.ifft2(U)
 
     def fraun(self, U, z, wl, shift=True):
         """Simulate light propagation according to the Fraunhofer integral.
@@ -520,8 +524,16 @@ class Transforms_FFTW(Transforms):
     def __init__(self, N):
         Transforms.__init__(self, N)
         A = pyfftw.empty_aligned((N,N), dtype=np.complex128)
-        self.fft = pyfftw.builders.fft2(A, threads=NUM_CPU)
-        self.ifft = pyfftw.builders.ifft2(A, threads=NUM_CPU)
+        self.fftw = pyfftw.builders.fft2(A, threads=NUM_CPU)
+        self.ifftw = pyfftw.builders.ifft2(A, threads=NUM_CPU)
+
+    def fft(self, U):
+        """Overrides Transforms.fft."""
+        return self.fftw(U)
+
+    def ifft(self, U):
+        """Overrides Transforms.ifft."""
+        return self.ifftw(U)
 
 
 class Transforms_CUDA(Transforms):
@@ -537,14 +549,14 @@ class Transforms_CUDA(Transforms):
         self.fft_plan = skfft.Plan((self.N, self.N), np.complex128,
                                                      np.complex128)
 
-    def fft(U):
+    def fft(self, U):
         """Overrides Transforms.fft."""
         self.Uin.set(U)
         skfft.fft(self.Uin, self.Uout, self.fft_plan)
         return self.Uout.get()
 
-    def ifft(U):
+    def ifft(self, U):
         """Overrides Transforms.ifft."""
         self.Uin.set(U)
-        skfft.ifft(self.Uin, self.Uout, self.fft_plan)
+        skfft.ifft(self.Uin, self.Uout, self.fft_plan, scale=True)
         return self.Uout.get()
