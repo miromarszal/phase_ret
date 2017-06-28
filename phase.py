@@ -477,7 +477,7 @@ class Transforms:
             U = spfft.ifftshift(U)
         # Phase factors.
         ph1 = np.exp(2.j * np.pi * z / wl)
-        ph2 = np.exp(1.j * np.pi / wl / z * r2)
+        ph2 = np.exp(1.j * np.pi / wl / z * self.r2)
         if z>=0:
             U2 = -1.j / self.N * ph1 * ph2 * self.fft(U)
         else:
@@ -502,7 +502,7 @@ class Transforms:
         """
         if shift:
             U = spfft.ifftshift(U)
-        T = np.exp(2.j * np.pi * z * np.sqrt(1. / wl ** 2 - r2 / self.N ** 2))
+        T = np.exp(2.j * np.pi * z * np.sqrt(1. / wl ** 2 - self.r2 / self.N ** 2))
         U2 = self.ifft(self.fft(U) * T)
         return spfft.fftshift(U2) if shift else U2
 
