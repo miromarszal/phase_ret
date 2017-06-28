@@ -263,6 +263,29 @@ class TestTransformsFFTW:
         assert_allclose(asp_fftw_neg, asp_numpy_neg)
 
 
+class TestTransformsCUDA:
+
+    def setup(self):
+        if not ph.FFTW_LOADED:
+            raise nose.SkipTest('FFTW not loaded.')
+        N = 256
+        self.U = np.random.rand(N, N) + 1.j * np.random.rand(N, N)
+        self.z = np.random.rand()
+        self.wl = np.random.rand()
+        self.trans_numpy = ph.Transforms(N)
+        self.trans_cuda = ph.Transforms_CUDA(N)
+
+    def test_fft(self):
+        fft_numpy = self.trans_numpy.fft(self.U)
+        fft_cuda = self.trans_cuda.fft(self.U)
+        assert_allclose(fft_cuda, fft_numpy)
+
+    def test_ifft(self):
+        ifft_numpy = self.trans_numpy.ifft(self.U)
+        ifft_cuda = self.trans_cuda.ifft(self.U)
+        assert_allclose(ifft_cuda, ifft_numpy)
+
+
 # Run the tests!
 if __name__ == '__main__':
     result = nose.run(argv=['ignored', '-v'])
