@@ -61,7 +61,7 @@ NB64 = np.nbytes[np.float64]
 NUM_CPU = os.cpu_count()
 
 
-def circle(x0, y0, r, L):
+def circle(x0, y0, r, N):
     """Creates a circle of specified radius and position.
 
     Uses area sampling assuming a pixel to be a circle of radius 1/2
@@ -75,30 +75,19 @@ def circle(x0, y0, r, L):
     Args:
         x0, y0: Circle center coordinates.
         r: Circle radius.
-        L: Width of the image to be returned.
+        N: Width of the image to be returned.
 
     Returns:
-        An LxL numpy.array with values of 1 inside the circle,
+        An NxN numpy.array with values of 1 inside the circle,
         0 outside of it, and weighted accordingly on the edge.
     """
-    L0 = int((np.ceil(r)+1)*2)  # Subarray size
-    dx = int(x0-L0/2)           # Number of pixels to pad to the full array
-    dy = int(y0-L0/2)
-    circ = np.zeros((L, L))
-
-    # Loop over the subarray
-    for j, i in np.ndindex((L0, L0)):
-        d = 2. * (np.sqrt((x0-dx-i)**2 + (y0-dy-j)**2) - r)
-        # Pixel outside the circle
-        if d >= 1:
-            circ[dy+j, dx+i] = 0.
-        # Pixel inside the circle
-        elif d <= -1:
-            circ[dy+j, dx+i] = 1.
-        # Intermediate case - edge pixels
-        else:
-            circ[dy+j, dx+i] = (np.arccos(d) - d*np.sqrt(1.-d**2)) / np.pi
-
+    circ = np.zeros((N, N))
+    y, x = np.indices((N, N))
+    d = 2. * (np.sqrt((x - x0) ** 2. + (y - y0) ** 2.) - r)
+    idx = (d < 1.) * (d > -1.)
+    edge = d[idx]
+    circ[d <= -1.] = 1.
+    circ[idx] = (np.arccos(edge) - edge * np.sqrt(1. - edge ** 2.)) / np.pi
     return circ
 
 
