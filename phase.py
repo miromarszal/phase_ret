@@ -522,3 +522,29 @@ class Transforms_FFTW(Transforms):
         A = pyfftw.empty_aligned((N,N), dtype=np.complex128)
         self.fft = pyfftw.builders.fft2(A, threads=NUM_CPU)
         self.ifft = pyfftw.builders.ifft2(A, threads=NUM_CPU)
+
+
+class Transforms_CUDA(Transforms):
+    """Subclass of Transforms employing CUDA for faster computation.
+
+    TO DO: The same issue with threadblocks as in Errf_CUDA.
+    """
+
+    def __init__(self, N):
+        Transforms.__init__(self, N)
+        self.Uin = gpa.empty((self.N, self.N), np.complex128)
+        self.Uout = gpa.empty((self.N, self.N), np.complex128)
+        self.fft_plan = skfft.Plan((self.N, self.N), np.complex128,
+                                                     np.complex128)
+
+    def fft(U):
+        """Overrides Transforms.fft."""
+        self.Uin.set(U)
+        skfft.fft(self.Uin, self.Uout, self.fft_plan)
+        return self.Uout.get()
+
+    def ifft(U):
+        """Overrides Transforms.ifft."""
+        self.Uin.set(U)
+        skfft.ifft(self.Uin, self.Uout, self.fft_plan)
+        return self.Uout.get()
