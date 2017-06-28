@@ -14,6 +14,7 @@ from scipy.signal import resample
 import scipy.fftpack as spfft
 from pandas import DataFrame
 import os
+fac = np.math.factorial
 
 # Optionally import tifffile module for reading TIFF stacks.
 try:
@@ -605,3 +606,89 @@ class Transforms_CUDA(Transforms):
                     self.r2, self.Utemp, block=(self.N,1,1), grid=(self.N,1))
         skfft.ifft(self.Utemp, self.Uout, self.fft_plan, scale=True)
         return self.Uout.get()
+
+
+class Zernike:
+    """A callable class for storing and fitting Zernike polynomials.
+
+    Polynomials are indexed with a single index according to Noll's
+    convention and normalized to their RMS values.
+
+    Args:
+        jmax: Number of polyomials to be allocated.
+        a: Exit pupil aperture radius.
+        N: Image size.
+
+    Attributes:
+        a, N: See above.
+        r: Normalized radial coordinate.
+        p: Angular coordinate.
+        R: A circle representing the pupil aperture.
+        idx: (jmax)x2 array providing conversion between Noll's
+            convention and the (n,m) indexing scheme.
+        Z: (jmax)xNxN array representing Zernike polynomials.
+    """
+
+    def __init__(self, jmax, a, N):
+        self.a = a
+        self.N = N
+        # Normalized pupil coordinates
+        v, u = np.indices((N,N))
+        self.r = np.sqrt((u-N/2)**2 + (v-N/2)**2)/a
+        self.p = np.arctan2(v-N/2, u-N/2)
+        self.R = circle(N/2, N/2, a, N)
+        #  Allocating the polynomials and converting indices
+        self.idx = np.zeros((jmax, 2), dtype=int)
+        self.Z = np.ones((jmax, N, N))
+        n, m = 0, 0
+        for j, idx in enumerate(self.idx):
+            self.idx[j] = n, m
+            self.Z[j] = self.poly(n, m)
+            m = m*(-1)+2 if m<=0 else m*(-1)
+            if m>n:
+                n += 1
+                m = n%2
+
+    def poly(self, n, m):
+        """Calculates the polynomials according to (n,m) indexing."""
+        if m==0:
+            norm = np.sqrt(n+1.)  # Normalization
+            azim = 1.             # Azimuthal part
+        else:
+            norm = np.sqrt(2*n+2.)
+            azim = np.cos(m*self.p) if m>0 else np.sin(-m*self.p)
+        m = abs(m)
+        if m==n:
+            rad = self.r**n       # Radial part
+        else:
+            factor = lambda k: (-1.)**k * fac(n-k) / (fac(k)
+                                                      * fac((n+m)/2-k)
+                                                      * fac((n-m)/2-k))
+
+
+            rad = np.sum(factor(k) * self.r**(n-2*k)
+                         for k in np.arange((n-m)/2+1))
+        return norm * rad * azim
+
+    def fit(self, W, jmax):
+        """Calculates Zernike expansion coefficients for a wavefront.
+
+        Args:
+            W: The wavefront to be expanded into Zernike series.
+            jmax: Maximum order to be calculated.  Note that this is
+                different from the value specified at initialization
+                and must not exceed it.
+
+        Returns:
+            An array of length jmax representing expansion coefficients.
+        """
+        C = (np.sum(W[None,:,:] * self.Z[:jmax] * self.R, axis=(-2,-1))
+             / (np.pi*self.a**2))
+        return C
+
+    def __call__(self, C):
+        """Returns a wavefront given by an array of expansion coefficients.
+
+        Note that the length of C must not exceed the length of Z.
+        """
+        return np.tensordot(C, self.Z[:len(C)], axes=(0,0))
