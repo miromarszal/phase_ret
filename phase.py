@@ -424,5 +424,77 @@ class Errf_CUDA(Errf):
         skfft.ifft(self.Gwkj, self.Gwjk, self.fft2n, scale=True)
         self.get_dE(np.uint32(self.num), self.Gj, self.Gwjk, self.dE,
                     block=(self.N,1,1), grid=(self.N,1))
-                    
+
         return self.E.get()[0], self.dE.get().ravel()
+
+
+class Transforms:
+    """A container class for FFTs and diffraction integrals.
+
+    Defines 2D FFTs for a particular size images being transformed and
+    Fraunhofer diffraction and angular spectrum propagation integrals.
+    Subclassed by Transforms_FFTW and Transforms_CUDA.
+
+    Args:
+        N: Image width to be used. Images must be rectangles.
+
+    Attributes:
+        N: See above.
+        fft: FFT of a single image.
+        ifft: Inverse FFT.
+        x, y: Arrays of pixel coordinates, fft-shifted.
+    """
+
+    def __init__(self, N):
+        self.N = N
+        # Defining FFTs
+        self.fft = spfft.fft2
+        self.ifft = spfft.ifft2
+        # Index arrays
+        y, x = np.indices((N,N))
+        self.x = self.ifftshift(x).astype(float) - N/2
+        self.y = self.ifftshift(y).astype(float) - N/2
+
+    def fraun(self, U, z, wl):
+        """Simulate light propagation according to the Fraunhofer integral.
+
+        The length unit is the pixel size in the image space, that is
+        the space of the output field for forward propagation (z>=0) and
+        the space of the intput field for backward propagation (z<0).
+
+        Args:
+            U: A complex NxN array representing the input field.
+            z: Distance of propagation in image-space pixels.
+            wl: Wavelength of light in image-space pixels.
+
+        Returns:
+            A complex NxN array representing the transformed field.
+        """
+        U1 = self.ifftshift(U)
+        if z>=0:
+            U2 = -1.j/self.N * (np.exp(1.j*np.pi
+                * (2*z/wl + 1./wl/z * (self.x**2 + self.y**2))) * self.fft(U1))
+        else:
+            U2 = 1.j*self.N * (np.exp(2.j*np.pi*z/wl)
+            * self.ifft(U1 * np.exp(1.j*np.pi/wl/z * (self.x**2 + self.y**2))))
+        return self.fftshift(U2)
+
+    def asp(self, U, z, wl):
+        """Light propagation according to the angular spectrum propagation.
+
+        In this case the pixel size is the same in both spaces and
+        remains unchanged under propagation.
+
+        Args:
+            U: A complex NxN array representing the input field.
+            z: Distance of propagation in pixels.
+            wl: Wavelength of light in pixels.
+
+        Returns:
+            A complex NxN array representing the transformed field.
+        """
+        T = np.exp(2.j*np.pi*z
+                   * np.sqrt(1./wl**2 - (self.x**2 + self.y**2)/self.N**2))
+        U1 = self.ifftshift(U)
+        U2 = self.ifft(self.fft(U1) * T)
+        return  self.fftshift(U2)
