@@ -26,7 +26,7 @@ __global__ void get_E_Gwkj(double *Fk, cuDoubleComplex *Gkj, double *E, cuDouble
 {
     int idx = threadIdx.x + blockIdx.x * blockDim.x + blockIdx.y * blockDim.x * gridDim.x;
     double absGkj = cuCabs(Gkj[idx]);
-    E[idx] = pow(Fk[idx] - absGkj, 2);
+    E[idx] = (Fk[idx] - absGkj) * (Fk[idx] - absGkj);
     cuDoubleComplex expGkj = cuCdiv(Gkj[idx], make_cuDoubleComplex(absGkj, 0));
     Gwkj[idx] = cuCsub(cuCmul(make_cuDoubleComplex(Fk[idx], 0), expGkj), Gkj[idx]);
 }

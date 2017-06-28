@@ -39,7 +39,7 @@ try:
     import pycuda.gpuarray as gpa
     from pycuda.compiler import SourceModule
     from skcuda import fft as skfft
-    with open('errf_kernels.cu') as f:
+    with open('kernels.cu') as f:
         kernels = SourceModule(f.read())
     CUDA_LOADED = True
 except ImportError:
@@ -47,12 +47,14 @@ except ImportError:
     print('Failed to import pycuda/skcuda.')
 except FileNotFoundError:
     CUDA_LOADED = False
-    print('Failed to load errf_kernels.cu.')
+    print('Failed to load kernels.cu.')
 except drv.CompileError as err:
     CUDA_LOADED = False
     print('Failed to compile kernels:')
     print(err.msg)
     print('command: ' + ' '.join(err.command_line))
+    print(err.stdout)
+    print(err.stderr)
 
 # Other constants.
 NB64 = np.nbytes[np.float64]
@@ -360,7 +362,12 @@ class Errf_CUDA(Errf):
     """Subclass of Errf utilizing CUDA-accelerated computation.
 
     Uses pycuda and skcuda to facilitate integration with Python.
-    Employs kernels defined in 'errf_kernels.cu'.
+    Employs kernels defined in 'kernels.cu'.
+
+    TO DO: Better (scalable) divisions into threadblocks.
+    Currently threads are divided into N blocks x N threads per block,
+    where N is the array width.  This makes for more readable code,
+    but obviously puts a limit on scalability.
     """
 
     def __init__(self, zj, zk, Fj, Fk, wl):
