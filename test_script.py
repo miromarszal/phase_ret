@@ -248,16 +248,16 @@ class TestTransformsFFTW:
 
     def test_fraun(self):
         fraun_numpy_pos = self.trans_numpy.fraun(self.U, self.z, self.wl, True)
-        fraun_fftw_pos = self.trans_numpy.fraun(self.U, self.z, self.wl, True)
-        fraun_numpy_neg = self.trans_fftw.fraun(self.U, -self.z, self.wl, True)
+        fraun_fftw_pos = self.trans_fftw.fraun(self.U, self.z, self.wl, True)
+        fraun_numpy_neg = self.trans_numpy.fraun(self.U, -self.z, self.wl, True)
         fraun_fftw_neg = self.trans_fftw.fraun(self.U, -self.z, self.wl, True)
         assert_allclose(fraun_fftw_pos, fraun_numpy_pos)
         assert_allclose(fraun_fftw_neg, fraun_numpy_neg)
 
     def test_asp(self):
         asp_numpy_pos = self.trans_numpy.asp(self.U, self.z, self.wl, True)
-        asp_fftw_pos = self.trans_numpy.asp(self.U, self.z, self.wl, True)
-        asp_numpy_neg = self.trans_fftw.asp(self.U, -self.z, self.wl, True)
+        asp_fftw_pos = self.trans_fftw.asp(self.U, self.z, self.wl, True)
+        asp_numpy_neg = self.trans_numpy.asp(self.U, -self.z, self.wl, True)
         asp_fftw_neg = self.trans_fftw.asp(self.U, -self.z, self.wl, True)
         assert_allclose(asp_fftw_pos, asp_numpy_pos)
         assert_allclose(asp_fftw_neg, asp_numpy_neg)
