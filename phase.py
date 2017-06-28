@@ -443,12 +443,11 @@ class Transforms:
 
     def __init__(self, N):
         self.N = N
-        # Defining FFTs
         # Coordinate arrays
         y, x = np.indices((N,N))
-        x = spfft.ifftshift(x).astype(float) - N/2
-        y = spfft.ifftshift(y).astype(float) - N/2
-        self.r2 = x ** 2 + y ** 2
+        self.x = spfft.ifftshift(x).astype(float) - N/2
+        self.y = spfft.ifftshift(y).astype(float) - N/2
+        self.r2 = self.x ** 2 + self.y ** 2
 
     def fft(self, U):
         return spfft.fft2(U)
