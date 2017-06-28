@@ -26,7 +26,7 @@ __global__ void get_E_Gwkj(double *Fk, cuDoubleComplex *Gkj, double *E, cuDouble
 {
     int idx = threadIdx.x + blockIdx.x * blockDim.x + blockIdx.y * blockDim.x * gridDim.x;
     double absGkj = cuCabs(Gkj[idx]);
-    E[idx] = pow(Fk[idx] - absGkj, 2);
+    E[idx] = (Fk[idx] - absGkj) * (Fk[idx] - absGkj);
     cuDoubleComplex expGkj = cuCdiv(Gkj[idx], make_cuDoubleComplex(absGkj, 0));
     Gwkj[idx] = cuCsub(cuCmul(make_cuDoubleComplex(Fk[idx], 0), expGkj), Gkj[idx]);
 }
@@ -70,4 +70,59 @@ __global__ void get_dE(int num, cuDoubleComplex *Gj, cuDoubleComplex *Gwjk, doub
         imGwjk -= Gwjk[idx + s * blockDim.x * gridDim.x].y;
     }
     dE[idx] = (Gj[idx].x * imGwjk + Gj[idx].y * reGwjk) * 2;
+}
+
+__global__ void mult_T(int N, double z, double wl, double *r2, cuDoubleComplex *U)
+{
+    int idx = threadIdx.x + blockIdx.x * blockDim.x;
+    double s, c;
+    cuDoubleComplex u = U[idx];
+    double ph = z * sqrt(1 / wl / wl - r2[idx] / N / N) * 2;
+    sincospi(ph, &s, &c);
+    U[idx].x = u.x * c - u.y * s;
+    U[idx].y = u.x * s + u.y * c;
+}
+
+__global__ void mult_ph12(int N, double z, double wl, double *r2, cuDoubleComplex *U)
+{
+    int idx = threadIdx.x + blockIdx.x * blockDim.x;
+    double s, c;
+    cuDoubleComplex u = U[idx];
+    double ph = 2 * z / wl + r2[idx] / wl / z;
+    sincospi(ph, &s, &c);
+    U[idx].x = (u.x * s + u.y * c) / N;
+    U[idx].y = (-u.x * c + u.y * s) / N;
+}
+
+__global__ void mult_ph1(int N, double z, double wl, cuDoubleComplex *U)
+{
+    int idx = threadIdx.x + blockIdx.x * blockDim.x;
+    double s, c;
+    cuDoubleComplex u = U[idx];
+    double ph = 2 * z / wl;
+    sincospi(ph, &s, &c);
+    U[idx].x = -(u.x * s + u.y * c) * N;
+    U[idx].y = (u.x * c - u.y * s) * N;
+}
+
+__global__ void mult_ph2(int N, double z, double wl, double *r2, cuDoubleComplex *U)
+{
+    int idx = threadIdx.x + blockIdx.x * blockDim.x;
+    double s, c;
+    cuDoubleComplex u = U[idx];
+    double ph = r2[idx] / wl / z;
+    sincospi(ph, &s, &c);
+    U[idx].x = u.x * c - u.y * s;
+    U[idx].y = u.x * s + u.y * c;
+}
+
+__global__ void fftshift(cuDoubleComplex *U)
+{
+    int i = threadIdx.x;
+    int j = blockIdx.x;
+    int idx = i + j * blockDim.x;
+    //double a = 1 - 2 * ((i + j) & 1);
+    double a = pow(-1.0, (i + j) & 1);
+    U[idx].x *= a;
+    U[idx].y *= a;
 }

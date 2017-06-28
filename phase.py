@@ -39,7 +39,7 @@ try:
     import pycuda.gpuarray as gpa
     from pycuda.compiler import SourceModule
     from skcuda import fft as skfft
-    with open('errf_kernels.cu') as f:
+    with open('kernels.cu') as f:
         kernels = SourceModule(f.read())
     CUDA_LOADED = True
 except ImportError:
@@ -47,12 +47,14 @@ except ImportError:
     print('Failed to import pycuda/skcuda.')
 except FileNotFoundError:
     CUDA_LOADED = False
-    print('Failed to load errf_kernels.cu.')
+    print('Failed to load kernels.cu.')
 except drv.CompileError as err:
     CUDA_LOADED = False
     print('Failed to compile kernels:')
     print(err.msg)
     print('command: ' + ' '.join(err.command_line))
+    print(err.stdout)
+    print(err.stderr)
 
 # Other constants.
 NB64 = np.nbytes[np.float64]
@@ -174,7 +176,7 @@ def total_power(img, x0, y0, r1=100, r2=250, r3=300, x=None, y=None):
 
 
 def locate_peak(img, res=16):
-    """Locates the maximum in the image via Fourier resampling
+    """Locates the maximum in the image via Fourier resampling.
 
     Args:
         img: The image to be resampled.
@@ -296,13 +298,13 @@ class Errf(object):
     def __init__(self, zj, zk, Fj, Fk, wl):
         self.zj = zj
         self.zk = zk
-        self.Fj = spfft.ifftshift(Fj)
-        self.Fk = spfft.ifftshift(Fk, axes=(-2,-1))
+        self.Fj = Fj
+        self.Fk = Fk
         self.N = self.Fj.shape[0]
         self.num = len(Fk)
         y, x = np.indices((self.N, self.N))
-        x = spfft.ifftshift(x).astype(np.float64) - self.N/2
-        y = spfft.ifftshift(y).astype(np.float64) - self.N/2
+        x = spfft.fftshift(x - self.N/2)
+        y = spfft.fftshift(y - self.N/2)
         self.Tk = np.exp(2.j * np.pi * (self.zk - self.zj)[:,None,None]
                              * np.sqrt(1. / wl ** 2 - (x ** 2 + y ** 2)
                                                     / self.N ** 2))
@@ -312,8 +314,7 @@ class Errf(object):
         """Calculates the error metric for given phase estimate.
 
         Args:
-            ph: Phase in the master plane. Must be fft-shifted (DC component
-                in the [0,0] element).
+            ph: Phase in the master plane.
 
         Returns:
             E: The error metric.
@@ -340,11 +341,11 @@ class Errf_FFTW(Errf):
     def __init__(self, zj, zk, Fj, Fk, wl):
         Errf.__init__(self, zj, zk, Fj, Fk, wl)
         self.fft21 = pyfftw.builders.fft2(self.Fj.astype(np.complex128),
-                                          threads=NUM_CPU)
+                                                        threads=NUM_CPU)
         self.fft2n = pyfftw.builders.fft2(self.Fk.astype(np.complex128),
-                                          threads=NUM_CPU)
+                                                        threads=NUM_CPU)
         self.ifft2n = pyfftw.builders.ifft2(self.Fk.astype(np.complex128),
-                                            threads=NUM_CPU)
+                                                          threads=NUM_CPU)
 
     def __call__(self, ph):
         Gj = self.Fj * np.exp(1.j * ph.reshape((self.N, self.N)))
@@ -360,7 +361,12 @@ class Errf_CUDA(Errf):
     """Subclass of Errf utilizing CUDA-accelerated computation.
 
     Uses pycuda and skcuda to facilitate integration with Python.
-    Employs kernels defined in 'errf_kernels.cu'.
+    Employs kernels defined in 'kernels.cu'.
+
+    TO DO: Better (scalable) divisions into threadblocks.
+    Currently threads are divided into N blocks x N threads per block,
+    where N is the array width.  This makes for more readable code,
+    but obviously puts a limit on scalability.
     """
 
     def __init__(self, zj, zk, Fj, Fk, wl):
@@ -399,7 +405,7 @@ class Errf_CUDA(Errf):
 
     def __call__(self, ph):
         ### Preparing stuff.
-        self.ph.set(ph)
+        self.ph.set(ph.reshape((self.N, self.N)))
         self.get_Gj(self.Fj, self.ph, self.Gj, block=(self.N,1,1),
                     grid=(self.N,1))
         skfft.fft(self.Gj, self.temp1, self.fft21)
@@ -424,5 +430,189 @@ class Errf_CUDA(Errf):
         skfft.ifft(self.Gwkj, self.Gwjk, self.fft2n, scale=True)
         self.get_dE(np.uint32(self.num), self.Gj, self.Gwjk, self.dE,
                     block=(self.N,1,1), grid=(self.N,1))
-                    
+
         return self.E.get()[0], self.dE.get().ravel()
+
+
+class Transforms:
+    """A container class for FFTs and diffraction integrals.
+
+    Defines 2D FFTs for a particular size images being transformed and
+    Fraunhofer diffraction and angular spectrum propagation integrals.
+    Subclassed by Transforms_FFTW and Transforms_CUDA.
+
+    Args:
+        N: Image width to be used. Images must be rectangles.
+
+    Attributes:
+        N: See above.
+        fft: FFT of a single image.
+        ifft: Inverse FFT.
+        r2: Square of the real-space radial coordinate.
+    """
+
+    def __init__(self, N):
+        self.N = N
+        # Defining FFTs
+        # Coordinate arrays
+        y, x = np.indices((N,N))
+        x = spfft.ifftshift(x).astype(float) - N/2
+        y = spfft.ifftshift(y).astype(float) - N/2
+        self.r2 = x ** 2 + y ** 2
+
+    def fft(self, U):
+        return spfft.fft2(U)
+
+    def ifft(self, U):
+        return spfft.ifft2(U)
+
+    def fraun(self, U, z, wl, shift=True):
+        """Simulate light propagation according to the Fraunhofer integral.
+
+        The length unit is the pixel size in the image space, that is
+        the space of the output field for forward propagation (z>=0) and
+        the space of the intput field for backward propagation (z<0).
+
+        Args:
+            U: A complex NxN array representing the input field.
+            z: Distance of propagation in image-space pixels.
+            wl: Wavelength of light in image-space pixels.
+            shift: Flag telling whether an fftshift should be performed
+                before carrying out the transform.
+
+        Returns:
+            A complex NxN array representing the transformed field.
+        """
+        if shift:
+            U = spfft.ifftshift(U)
+        # Phase factors.
+        ph1 = np.exp(2.j * np.pi * z / wl)
+        ph2 = np.exp(1.j * np.pi / wl / z * self.r2)
+        if z>=0:
+            U2 = -1.j / self.N * ph1 * ph2 * self.fft(U)
+        else:
+            U2 = 1.j * self.N * ph1 * self.ifft(U * ph2)
+        return spfft.fftshift(U2) if shift else U2
+
+    def asp(self, U, z, wl):
+        """Light propagation according to the angular spectrum propagation.
+
+        In this case the pixel size is the same in both spaces and
+        remains unchanged under propagation.
+
+        Args:
+            U: A complex NxN array representing the input field.
+            z: Distance of propagation in pixels.
+            wl: Wavelength of light in pixels.
+            shift: Flag telling whether an fftshift should be performed
+                before carrying out the transform.
+
+        Returns:
+            A complex NxN array representing the transformed field.
+        """
+        T = np.exp(2.j * np.pi * z * np.sqrt(1. / wl ** 2 - self.r2 / self.N ** 2))
+        U2 = self.ifft(self.fft(U) * T)
+        return U2
+
+
+class Transforms_FFTW(Transforms):
+    """Subclass of Transforms employing FFTW for faster computation.
+
+    TO DO: The asp method consistently fails the tests. Probably
+        related to the memory management of pyfftw. In normal usage
+        everything seems to work fine.
+    """
+
+    def __init__(self, N):
+        Transforms.__init__(self, N)
+        A = pyfftw.empty_aligned((N,N), dtype=np.complex128)
+        self.fftw = pyfftw.builders.fft2(A, threads=NUM_CPU)
+        self.ifftw = pyfftw.builders.ifft2(A, threads=NUM_CPU)
+
+    def fft(self, U):
+        """Overrides Transforms.fft."""
+        return self.fftw(U)
+
+    def ifft(self, U):
+        """Overrides Transforms.ifft."""
+        return self.ifftw(U)
+
+
+class Transforms_CUDA(Transforms):
+    """Subclass of Transforms employing CUDA for faster computation.
+
+    TO DO:
+        * FFT shifts are done in a weird way.
+        * Errors accumulate somewhere. Every now and then tests will fail
+            for the fraun function.
+        * The same issue with threadblocks as in Errf_CUDA.
+    """
+
+    def __init__(self, N):
+        Transforms.__init__(self, N)
+        self.Uin = gpa.empty((self.N, self.N), np.complex128)
+        self.Uout = gpa.empty((self.N, self.N), np.complex128)
+        self.Utemp = gpa.empty((self.N, self.N), np.complex128)
+        self.r2_shift = gpa.to_gpu(spfft.fftshift(self.r2))
+        self.r2 = gpa.to_gpu(self.r2)
+        self.fft_plan = skfft.Plan((self.N, self.N), np.complex128,
+                                                     np.complex128)
+        self.fftshift = kernels.get_function('fftshift')
+        self.mult_T = kernels.get_function('mult_T')
+        self.mult_ph12 = kernels.get_function('mult_ph12')
+        self.mult_ph1 = kernels.get_function('mult_ph1')
+        self.mult_ph2 = kernels.get_function('mult_ph2')
+
+    def fft(self, U):
+        """Overrides Transforms.fft."""
+        self.Uin.set(U)
+        skfft.fft(self.Uin, self.Uout, self.fft_plan)
+        return self.Uout.get()
+
+    def ifft(self, U):
+        """Overrides Transforms.ifft."""
+        self.Uin.set(U)
+        skfft.ifft(self.Uin, self.Uout, self.fft_plan, scale=True)
+        return self.Uout.get()
+
+    def fraun(self, U, z, wl, shift=True):
+        """Overrides Transforms.fraun"""
+        self.Uin.set(U)
+        if z>=0:
+            if shift:
+                self.fftshift(self.Uin, block=(self.N,1,1), grid=(self.N,1))
+                skfft.fft(self.Uin, self.Uout, self.fft_plan)
+                self.fftshift(self.Uout, block=(self.N,1,1), grid=(self.N,1))
+                self.mult_ph12(np.uint32(self.N), np.float64(z), np.float64(wl),
+                               self.r2_shift, self.Uout,
+                               block=(self.N,1,1), grid=(self.N,1))
+            else:
+                skfft.fft(self.Uin, self.Uout, self.fft_plan)
+                self.mult_ph12(np.uint32(self.N), np.float64(z), np.float64(wl),
+                               self.r2, self.Uout,
+                               block=(self.N,1,1), grid=(self.N,1))
+        else:
+            if shift:
+                self.mult_ph2(np.uint32(self.N), np.float64(z), np.float64(wl),
+                              self.r2_shift, self.Uin,
+                              block=(self.N,1,1), grid=(self.N,1))
+                self.fftshift(self.Uin, block=(self.N,1,1), grid=(self.N,1))
+                skfft.ifft(self.Uin, self.Uout, self.fft_plan, scale=True)
+                self.fftshift(self.Uout, block=(self.N,1,1), grid=(self.N,1))
+            else:
+                self.mult_ph2(np.uint32(self.N), np.float64(z), np.float64(wl),
+                              self.r2, self.Uin,
+                              block=(self.N,1,1), grid=(self.N,1))
+                skfft.ifft(self.Uin, self.Uout, self.fft_plan, scale=True)
+            self.mult_ph1(np.uint32(self.N), np.float64(z), np.float64(wl),
+                          self.Uout, block=(self.N,1,1), grid=(self.N,1))
+        return self.Uout.get()
+
+    def asp(self, U, z, wl, shift=True):
+        """Overrides Transforms.asp."""
+        self.Uin.set(U)
+        skfft.fft(self.Uin, self.Utemp, self.fft_plan)
+        self.mult_T(np.uint32(self.N), np.float64(z), np.float64(wl),
+                    self.r2, self.Utemp, block=(self.N,1,1), grid=(self.N,1))
+        skfft.ifft(self.Utemp, self.Uout, self.fft_plan, scale=True)
+        return self.Uout.get()
