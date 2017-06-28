@@ -340,11 +340,11 @@ class Errf_FFTW(Errf):
     def __init__(self, zj, zk, Fj, Fk, wl):
         Errf.__init__(self, zj, zk, Fj, Fk, wl)
         self.fft21 = pyfftw.builders.fft2(self.Fj.astype(np.complex128),
-                                          threads=NUM_CPU)
+                                                        threads=NUM_CPU)
         self.fft2n = pyfftw.builders.fft2(self.Fk.astype(np.complex128),
-                                          threads=NUM_CPU)
+                                                        threads=NUM_CPU)
         self.ifft2n = pyfftw.builders.ifft2(self.Fk.astype(np.complex128),
-                                            threads=NUM_CPU)
+                                                          threads=NUM_CPU)
 
     def __call__(self, ph):
         Gj = self.Fj * np.exp(1.j * ph.reshape((self.N, self.N)))
@@ -442,7 +442,7 @@ class Transforms:
         N: See above.
         fft: FFT of a single image.
         ifft: Inverse FFT.
-        x, y: Arrays of pixel coordinates, fft-shifted.
+        r2: Square of the real-space radial coordinate.
     """
 
     def __init__(self, N):
@@ -450,12 +450,13 @@ class Transforms:
         # Defining FFTs
         self.fft = spfft.fft2
         self.ifft = spfft.ifft2
-        # Index arrays
+        # Coordinate arrays
         y, x = np.indices((N,N))
-        self.x = self.ifftshift(x).astype(float) - N/2
-        self.y = self.ifftshift(y).astype(float) - N/2
+        x = spfft.ifftshift(x).astype(float) - N/2
+        y = spfft.ifftshift(y).astype(float) - N/2
+        self.r2 = x ** 2 + y ** 2
 
-    def fraun(self, U, z, wl):
+    def fraun(self, U, z, wl, shift=True):
         """Simulate light propagation according to the Fraunhofer integral.
 
         The length unit is the pixel size in the image space, that is
@@ -466,20 +467,24 @@ class Transforms:
             U: A complex NxN array representing the input field.
             z: Distance of propagation in image-space pixels.
             wl: Wavelength of light in image-space pixels.
+            shift: Flag telling whether an fftshift should be performed
+                before carrying out the transform.
 
         Returns:
             A complex NxN array representing the transformed field.
         """
-        U1 = self.ifftshift(U)
+        if shift:
+            U = spfft.ifftshift(U)
+        # Phase factors.
+        ph1 = np.exp(2.j * np.pi * z / wl)
+        ph2 = np.exp(1.j * np.pi / wl / z * r2)
         if z>=0:
-            U2 = -1.j/self.N * (np.exp(1.j*np.pi
-                * (2*z/wl + 1./wl/z * (self.x**2 + self.y**2))) * self.fft(U1))
+            U2 = -1.j / self.N * ph1 * ph2 * self.fft(U)
         else:
-            U2 = 1.j*self.N * (np.exp(2.j*np.pi*z/wl)
-            * self.ifft(U1 * np.exp(1.j*np.pi/wl/z * (self.x**2 + self.y**2))))
-        return self.fftshift(U2)
+            U2 = 1.j * self.N * ph1 * self.ifft(U * ph2)
+        return spfft.fftshift(U2) if shift else U2
 
-    def asp(self, U, z, wl):
+    def asp(self, U, z, wl, shift=True):
         """Light propagation according to the angular spectrum propagation.
 
         In this case the pixel size is the same in both spaces and
@@ -489,12 +494,24 @@ class Transforms:
             U: A complex NxN array representing the input field.
             z: Distance of propagation in pixels.
             wl: Wavelength of light in pixels.
+            shift: Flag telling whether an fftshift should be performed
+                before carrying out the transform.
 
         Returns:
             A complex NxN array representing the transformed field.
         """
-        T = np.exp(2.j*np.pi*z
-                   * np.sqrt(1./wl**2 - (self.x**2 + self.y**2)/self.N**2))
-        U1 = self.ifftshift(U)
-        U2 = self.ifft(self.fft(U1) * T)
-        return  self.fftshift(U2)
+        if shift:
+            U = spfft.ifftshift(U)
+        T = np.exp(2.j * np.pi * z * np.sqrt(1. / wl ** 2 - r2 / self.N ** 2))
+        U2 = self.ifft(self.fft(U) * T)
+        return spfft.fftshift(U2) if shift else U2
+
+
+class Transforms_FFTW(Transforms):
+    """Subclass of Transforms employing FFTW for faster computation."""
+
+    def __init__(self, N):
+        Transforms.__init__(self, N)
+        A = pyfftw.empty_aligned((N,N), dtype=np.complex128)
+        self.fft = pyfftw.builders.fft2(A, threads=NUM_CPU)
+        self.ifft = pyfftw.builders.ifft2(A, threads=NUM_CPU)
