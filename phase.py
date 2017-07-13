@@ -187,8 +187,8 @@ def locate_peak(img, res=16):
     return x0, y0, imgRes.max()
 
 
-def analyze_peaks(stack, window, res,
-                  r1=100, r2=250, r3=300, index=None, print_output=True):
+def analyze_peaks(stack, window=32, res=16, r1=100, r2=250, r3=300,
+                 x0=None, y0=None, index=None, print_output=True):
     """Finds peaks in a Tiff stack and does several measurements.
 
     Accepts a TiffFile stack and performs image analysis on it,
@@ -206,6 +206,10 @@ def analyze_peaks(stack, window, res,
         window: Size of the window used to resample an image.
         res: Resampling rate, a pixel is divided into res^2 pixels.
         r1, r2, r3: Radii for total_power (see below).
+        x0, y0: If both are not None, peak location will be skipped.
+                Instead, the peak position will be fixed at (x0, y0).
+        index: List of indices to be passed to DataFrames holding
+               the results.  If None, a sequential index will be used.
         print_output: If true, measurement results will be printed.
 
     Returns:
@@ -230,20 +234,27 @@ def analyze_peaks(stack, window, res,
                           index=index, dtype='float64')
     if TIFF_LOADED and isinstance(stack, tifffile.TiffFile):
         stack = stack.asarray()
-    #y, x = np.indices(stack[0].shape)
+    if x0 is None or y0 is None:
+        locate = True
+    else:
+        locate = False
 
     # Loop over all images in the stack
     for i, img in enumerate(stack):
-        y0Cp, x0Cp = extrema(img)[3]  # Coarse maximum location
-        imgCp = crop(img, x0Cp, y0Cp, window)  # Windowing
-        # Image resampling, getting the sub-pixel peak position
-        x0, y0, amp = locate_peak(imgCp, res)
-        # Converting peak coordinates from window to full image
-        x0 += x0Cp - window / 2
-        y0 += y0Cp - window / 2
+        if locate:
+            y0Cp, x0Cp = extrema(img)[3]  # Coarse maximum location
+            imgCp = crop(img, x0Cp, y0Cp, window)  # Windowing
+            # Image resampling, getting the sub-pixel peak position
+            x0, y0, amp = locate_peak(imgCp, res)
+            # Converting peak coordinates from window to full image
+            x0 += x0Cp - window / 2
+            y0 += y0Cp - window / 2
+        else:
+            imgCp = crop(img, x0, y0, window)
+            amp = img[y0, x0]
         # Measurements and normalization
         totp, var_totp, Nsig, bg, var_bg, Nbg = total_power(img, x0, y0,
-                                                            r1, r2, r3)#, x, y)
+                                                            r1, r2, r3)
         amp -= bg
         var_amp = amp + (1. + 1. / Nbg) * var_bg
         amp_norm = amp / totp
