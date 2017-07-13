@@ -238,7 +238,7 @@ class TestTransformsFFTW:
 
     def test_fft(self):
         fft_numpy = self.trans_numpy.fft(self.U)
-        
+
         fft_fftw = self.trans_fftw.fft(self.U)
         assert_allclose(fft_fftw, fft_numpy)
 
