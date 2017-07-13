@@ -16,14 +16,6 @@ from pandas import DataFrame
 import os
 fac = np.math.factorial
 
-# Optionally import tifffile module for reading TIFF stacks.
-try:
-    import tifffile
-    TIFF_LOADED = True
-except ImportError:
-    TIFF_LOADED = False
-    print('Failed to import tifffile.')
-
 # Optionally import pyfftw for faster FFTs.
 try:
     import pyfftw
@@ -232,8 +224,6 @@ def analyze_peaks(stack, window=32, res=16, r1=100, r2=250, r3=300,
                                     'norm amp'], index=index, dtype='float64')
     variances = DataFrame(columns=['amp', 'bg', 'tot power', 'norm amp'],
                           index=index, dtype='float64')
-    if TIFF_LOADED and isinstance(stack, tifffile.TiffFile):
-        stack = stack.asarray()
     if x0 is None or y0 is None:
         locate = True
     else:
