@@ -625,9 +625,10 @@ class Zernike:
     convention and normalized to their RMS values.
 
     Args:
-        jmax: Number of polyomials to be allocated.
+        u0, v0: Coordinates of the pupil centre.
         a: Exit pupil aperture radius.
         N: Image size.
+        jmax: Number of polyomials to be allocated.
 
     Attributes:
         a, N: See above.
@@ -639,14 +640,14 @@ class Zernike:
         Z: (jmax)xNxN array representing Zernike polynomials.
     """
 
-    def __init__(self, jmax, a, N):
+    def __init__(self, u0, v0, a, N, jmax):
         self.a = a
         self.N = N
         # Normalized pupil coordinates
         v, u = np.indices((N,N))
-        self.r = np.sqrt((u-N/2)**2 + (v-N/2)**2)/a
-        self.p = np.arctan2(v-N/2, u-N/2)
-        self.R = circle(N/2, N/2, a, N)
+        self.r = np.sqrt((u-u0)**2 + (v-v0)**2)/a
+        self.p = np.arctan2(v-v0, u-u0)
+        self.R = circle(u0, v0, a, N)
         #  Allocating the polynomials and converting indices
         self.idx = np.zeros((jmax, 2), dtype=int)
         self.Z = np.ones((jmax, N, N))
