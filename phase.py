@@ -230,7 +230,6 @@ def analyze_peaks(stack, window, res, r1=100, r2=250, r3=300,
                           index=index, dtype='float64')
     if TIFF_LOADED and isinstance(stack, tifffile.TiffFile):
         stack = stack.asarray()
-    #y, x = np.indices(stack[0].shape)
 
     # Loop over all images in the stack
     for i, img in enumerate(stack):
