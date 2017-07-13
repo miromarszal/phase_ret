@@ -254,7 +254,7 @@ def analyze_peaks(stack, window=32, res=16, r1=100, r2=250, r3=300,
             amp = img[y0, x0]
         # Measurements and normalization
         totp, var_totp, Nsig, bg, var_bg, Nbg = total_power(img, x0, y0,
-                                                            r1, r2, r3)#, x, y)
+                                                            r1, r2, r3)
         amp -= bg
         var_amp = amp + (1. + 1. / Nbg) * var_bg
         amp_norm = amp / totp
