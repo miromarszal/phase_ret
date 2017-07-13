@@ -234,10 +234,14 @@ def analyze_peaks(stack, window=32, res=16, r1=100, r2=250, r3=300,
                           index=index, dtype='float64')
     if TIFF_LOADED and isinstance(stack, tifffile.TiffFile):
         stack = stack.asarray()
+    if x0 is None or y0 is None:
+        locate = True
+    else:
+        locate = False
 
     # Loop over all images in the stack
     for i, img in enumerate(stack):
-        if x0 is None or y0 is None:
+        if locate:
             y0Cp, x0Cp = extrema(img)[3]  # Coarse maximum location
             imgCp = crop(img, x0Cp, y0Cp, window)  # Windowing
             # Image resampling, getting the sub-pixel peak position
