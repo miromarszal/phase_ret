@@ -188,7 +188,7 @@ def locate_peak(img, res=16):
 
 
 def analyze_peaks(stack, window, res, r1=100, r2=250, r3=300,
-                 (x0=None, y0=None), index=None, print_output=True):
+                 x0=None, y0=None, index=None, print_output=True):
     """Finds peaks in a Tiff stack and does several measurements.
 
     Accepts a TiffFile stack and performs image analysis on it,
