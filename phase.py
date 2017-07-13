@@ -206,6 +206,10 @@ def analyze_peaks(stack, window=32, res=16, r1=100, r2=250, r3=300,
         window: Size of the window used to resample an image.
         res: Resampling rate, a pixel is divided into res^2 pixels.
         r1, r2, r3: Radii for total_power (see below).
+        x0, y0: If both are not None, peak location will be skipped.
+                Instead, the peak position will be fixed at (x0, y0).
+        index: List of indices to be passed to DataFrames holding
+               the results.  If None, a sequential index will be used.
         print_output: If true, measurement results will be printed.
 
     Returns:
