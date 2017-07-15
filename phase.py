@@ -14,6 +14,7 @@ from scipy.signal import resample
 import scipy.fftpack as spfft
 from pandas import DataFrame
 import os
+import pkg_resources
 fac = np.math.factorial
 
 # Optionally import pyfftw for faster FFTs.
@@ -32,8 +33,8 @@ try:
     import pycuda.gpuarray as gpa
     from pycuda.compiler import SourceModule
     from skcuda import fft as skfft
-    with open('kernels.cu') as f:
-        kernels = SourceModule(f.read())
+    kernels_b = pkg_resources.resource_string(__name__, 'kernels.cu')
+    kernels = SourceModule(kernels_b.decode())
     CUDA_LOADED = True
 except ImportError:
     CUDA_LOADED = False
