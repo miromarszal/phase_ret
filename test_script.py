@@ -344,9 +344,6 @@ class TestZernike:
     def test_poly(self):
         assert_allclose(self.zern.Z, self.Z)
 
-    def test_poly_checksum(self):
-        assert_allclose(self.zern.Z.sum(axis=(-2,-1)), self.Z.sum(axis=(-2,-1)))
-
     def test_wf(self):
         assert_allclose(self.zern(self.C), self.W)
 
