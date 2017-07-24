@@ -345,13 +345,13 @@ class TestZernike:
         assert_allclose(self.zern.Z, self.Z)
 
     def test_poly_checksum(self):
-            assert_allclose(self.zern.Z.sum(axis=(-2,-1)), self.Z.sum(axis=(-2,-1)))
+        assert_allclose(self.zern.Z.sum(axis=(-2,-1)), self.Z.sum(axis=(-2,-1)))
 
     def test_wf(self):
         assert_allclose(self.zern(self.C), self.W)
 
     def test_fit(self):
-        assert_allclose(self.zern.fit(self.W, 8), self.C)
+        assert_allclose(self.zern.fit(self.W, 8), self.C, atol=1e-4)
 
 
 # Run the tests!
