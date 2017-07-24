@@ -631,19 +631,18 @@ class Zernike:
         Z: (jmax)xNxN array representing Zernike polynomials.
     """
 
-    def __init__(self, u0, v0, a, N, jmax):
-        self.a = a
+    def __init__(self, N, jmax):
         self.N = N
-        # Normalized pupil coordinates.
-        v, u = np.indices((N, N))
-        self.r = np.sqrt((u - u0) ** 2 + (v - v0) ** 2) / a
-        self.p = np.arctan2(v - v0, u - u0)
-        self.R = circle(u0, v0, a, N)
-        #  Allocating the polynomials.
-        self.Z = np.ones((jmax, N, N))
-        for j in range(jmax):
-            n, m = self.get_indices(j + 1)
-            self.Z[j] = self.poly(n, m)
+        self.jmax = jmax
+        self.v, self.u = np.indices((self.N, self.N))
+
+        # Allocating stuff.
+        self.u0, self.v0 = 0., 0.
+        self.a = 0.
+        self.r = np.zeros((self.N, self.N), dtype=np.float64)
+        self.p = np.zeros_like(self.r)
+        self.R = np.zeros_like(self.r)
+        self.Z = np.ones((jmax, N, N), dtype=np.float64)
 
     def get_indices(self, j):
         """Converts Noll's j index into (n, m) indices.
@@ -657,44 +656,75 @@ class Zernike:
         m = sign * ((k + 1 - (n % 2)) // 2 * 2 + (n % 2))
         return n, m
 
-    def poly(self, n, m):
-        """Calculates the polynomials according to (n,m) indexing."""
+    def get_poly(self, r, p, n, m):
+        """Calculates the polynomial according to (n,m) indexing."""
         if m==0:
             norm = np.sqrt(n + 1.)  # Normalization
             azim = 1.               # Azimuthal part
         else:
             norm = np.sqrt(2 * n + 2.)
-            azim = np.cos(m * self.p) if m > 0 else np.sin(-m * self.p)
+            azim = np.cos(m * p) if m > 0 else np.sin(-m * p)
         m = abs(m)
         if m==n:
-            rad = self.r ** n       # Radial part
+            rad = r ** n            # Radial part
         else:
             factor = lambda k: (-1.) ** k * fac(n - k) / (fac(k)
                                                         * fac((n + m) / 2 - k)
                                                         * fac((n - m) / 2 - k))
-            rad = np.sum(factor(k) * self.r ** (n - 2 * k)
+            rad = np.sum(factor(k) * r ** (n - 2 * k)
                                             for k in np.arange((n - m) / 2 + 1))
         return norm * rad * azim
 
-    def fit(self, W, jmax):
+    def make_zernikes(self, u0, v0, a):
+        """Allocates a set of Zernike polynomials for a given pupil.
+
+        If the pupil has not changed since the last call,
+        no action is taken.
+
+        Args:
+            u0, v0: Pupil center coordinates in pixels.
+            a: Pupil aperture radius in pixels.
+        """
+        if self.u0 != u0 or self.v0 != v0 or self.a != a:
+            self.u0, self.v0 = u0, v0
+            self.a = a
+            self.r = (np.sqrt((self.u - self.u0) ** 2 + (self.v - self.v0) ** 2)
+                      / self.a)
+            self.p = np.arctan2(self.v - self.v0, self.u - self.u0)
+            self.R = circle(self.u0, self.v0, self.a, self.N)
+            for j in range(self.jmax):
+                n, m = self.get_indices(j + 1)
+                self.Z[j] = self.get_poly(self.r, self.p, n, m)
+
+    def fit(self, W, u0, v0, a):
         """Calculates Zernike expansion coefficients for a wavefront.
 
         Args:
             W: The wavefront to be expanded into Zernike series.
-            jmax: Maximum order to be calculated.  Note that this is
-                different from the value specified at initialization
-                and must not exceed it.
+            u0, v0: Pupil center coordinates in pixels.
+            a: Pupil aperture radius in pixels.
 
         Returns:
-            An array of length jmax representing expansion coefficients.
+            An array of length jmax representing the fitted
+            expansion coefficients.
         """
-        C = (np.sum(W[None,:,:] * self.Z[:jmax] * self.R, axis=(-2,-1))
+        self.make_zernikes(u0, v0, a)
+        C = (np.sum(W[None,:,:] * self.Z * self.R, axis=(-2,-1))
              / (np.pi * self.a ** 2))
         return C
 
-    def __call__(self, C):
+    def __call__(self, C, u0, v0, a):
         """Returns a wavefront given by an array of expansion coefficients.
 
-        Note that the length of C must not exceed the length of Z.
+        Args:
+            C: Array of Zernike expansion coefficients.  The length
+                must not exceed jmax.
+            u0, v0: Pupil center coordinates in pixels.
+            a: Pupil aperture radius in pixels.
+
+        Rreturns:
+            An NxN array representing the wavefront.
         """
-        return np.tensordot(C, self.Z[:len(C)], axes=(0,0))
+        self.make_zernikes(u0, v0, a)
+        W = np.sum(C[:,None,None] * self.Z, axis=0)
+        return W
