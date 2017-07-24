@@ -323,14 +323,13 @@ class TestTransformsCUDA:
 class TestZernike:
 
     def setup(self):
-        N = 512
-        a = 150.4
-        v, u = np.indices((N, N))
-        r = np.sqrt((u - N / 2.) ** 2 + (v - N / 2.) ** 2) / a
-        p = np.arctan2(v - N / 2., u - N / 2.)
-        self.R = ph.circle(N / 2., N / 2., a, N)
-        self.zern = ph.Zernike(N / 2., N / 2., a, N, 8)
-        self.Z = np.ones((8, N, N), dtype=np.float64)
+        self.N = 512
+        self.a = 150.4
+        v, u = np.indices((self.N, self.N))
+        r = np.sqrt((u - self.N / 2.) ** 2 + (v - self.N / 2.) ** 2) / self.a
+        p = np.arctan2(v - self.N / 2., u - self.N / 2.)
+        self.R = ph.circle(self.N / 2., self.N / 2., self.a, self.N)
+        self.Z = np.ones((8, self.N, self.N), dtype=np.float64)
         self.Z[1] = 2. * r * np.cos(p)
         self.Z[2] = 2. * r * np.sin(p)
         self.Z[3] = np.sqrt(3.) * (2. * r ** 2 - 1.)
@@ -339,16 +338,21 @@ class TestZernike:
         self.Z[6] = np.sqrt(8.) * (3. * r ** 3 - 2. * r) * np.sin(p)
         self.Z[7] = np.sqrt(8.) * (3. * r ** 3 - 2. * r) * np.cos(p)
         self.C = np.random.rand(8) * .1
-        self.W = np.tensordot(self.C, self.Z, axes=(0,0))
+        self.W = np.sum(self.C[:,None,None] * self.Z, axis=0)
+
+        self.zern = ph.Zernike(self.N, 8)
+        self.zern.make_zernikes(self.N / 2., self.N / 2., self.a)
 
     def test_poly(self):
         assert_allclose(self.zern.Z, self.Z)
 
     def test_wf(self):
-        assert_allclose(self.zern(self.C), self.W)
+        assert_allclose(self.zern(self.C, self.N / 2., self.N / 2., self.a),
+                        self.W)
 
     def test_fit(self):
-        assert_allclose(self.zern.fit(self.W, 8), self.C, atol=1e-4)
+        assert_allclose(self.zern.fit(self.W, self.N / 2., self.N / 2., self.a),
+                        self.C, atol=1e-4)
 
 
 # Run the tests!
