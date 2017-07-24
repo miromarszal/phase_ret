@@ -184,7 +184,7 @@ def analyze_peaks(stack, window=32, res=16, r1=100, r2=250, r3=300,
                  x0=None, y0=None, index=None, print_output=True):
     """Finds peaks in a Tiff stack and does several measurements.
 
-    Accepts a TiffFile stack and performs image analysis on it,
+    Accepts stack of images and performs image analysis on it,
     returning a set of measurements for each page in the stack.
     Peak location (x0, y0) is extracted with sub-pixel accuracy by
     resampling with the Fourier method in a given window around the
@@ -194,8 +194,8 @@ def analyze_peaks(stack, window=32, res=16, r1=100, r2=250, r3=300,
     by the total power to yield the normalized amplitude.
 
     Args:
-        stack: A stack of images to be analyzed, either TiffFile
-            or a 3D numpy.array.
+        stack: A 3D numpy.array representing the stack of images
+               to be analyzed.
         window: Size of the window used to resample an image.
         res: Resampling rate, a pixel is divided into res^2 pixels.
         r1, r2, r3: Radii for total_power (see below).
@@ -426,7 +426,7 @@ class Errf_CUDA(Errf):
         return self.E.get()[0], self.dE.get().ravel()
 
 
-class Transforms:
+class Transforms(object):
     """A container class for FFTs and diffraction integrals.
 
     Defines 2D FFTs for a particular size images being transformed and
@@ -609,7 +609,7 @@ class Transforms_CUDA(Transforms):
         return self.Uout.get()
 
 
-class Zernike:
+class Zernike(object):
     """A callable class for storing and fitting Zernike polynomials.
 
     Polynomials are indexed with a single index according to Noll's

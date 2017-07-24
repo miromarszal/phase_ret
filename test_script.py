@@ -6,7 +6,7 @@ import phase as ph
 import nose
 
 
-class TestCircle:
+class TestCircle(object):
 
     def setup(self):
         self.circ = ph.circle(8, 8, 4, 64)
@@ -21,7 +21,7 @@ class TestCircle:
         assert_equal(self.circ[12,8], .5)
 
 
-class TestCrop:
+class TestCrop(object):
 
     def setup(self):
         self.arr = np.random.rand(16, 16)
@@ -49,7 +49,7 @@ class TestCrop:
                            ph.crop(self.arr, self.x0+.25, self.y0+.75, self.s+1))
 
 
-class TestCSF:
+class TestCSF(object):
 
     def setup(self):
         self.y, self.x = np.indices((16, 16))
@@ -73,7 +73,7 @@ class TestCSF:
         assert_almost_equal(ph.CSF(self.x-8, self.y-8, 4)[12, 8], 0)
 
 
-class TestTotalPower:
+class TestTotalPower(object):
 
     def setup(self):
         N = 512
@@ -96,7 +96,7 @@ class TestTotalPower:
         assert_almost_equal(self.result[0], self.totp)
 
 
-class TestLocatePeak:
+class TestLocatePeak(object):
 
     def setup(self):
         Nx, Ny = 32, 64
@@ -121,7 +121,7 @@ class TestLocatePeak:
         assert_approx_equal(self.result[2], self.amp, significant=3)
 
 
-class TestAnalyzePeaks:
+class TestAnalyzePeaks(object):
 
     def setup(self):
         N = 512
@@ -182,7 +182,7 @@ class TestAnalyzePeaks:
                                 check_less_precise=3)
 
 
-class TestErrfFFTW:
+class TestErrfFFTW(object):
 
     def setup(self):
         if not ph.FFTW_LOADED:
@@ -203,7 +203,7 @@ class TestErrfFFTW:
         assert_allclose(self.dE_fftw, self.dE_numpy)
 
 
-class TestErrfCUDA:
+class TestErrfCUDA(object):
 
     def setup(self):
         if not ph.CUDA_LOADED:
@@ -224,7 +224,7 @@ class TestErrfCUDA:
         assert_allclose(self.dE_cuda, self.dE_numpy)
 
 
-class TestTransformsFFTW:
+class TestTransformsFFTW(object):
 
     def setup(self):
         if not ph.FFTW_LOADED:
@@ -273,7 +273,7 @@ class TestTransformsFFTW:
         assert_allclose(asp_fftw_neg, asp_numpy_neg)
 
 
-class TestTransformsCUDA:
+class TestTransformsCUDA(object):
 
     def setup(self):
         if not ph.CUDA_LOADED:
@@ -320,7 +320,7 @@ class TestTransformsCUDA:
         assert_allclose(asp_cuda_neg, asp_numpy_neg)
 
 
-class TestZernike:
+class TestZernike(object):
 
     def setup(self):
         self.N = 512
