@@ -458,7 +458,7 @@ class Transforms:
         return spfft.ifft2(U)
 
     def fraun(self, U, z, wl, shift=True):
-        """Simulate light propagation according to the Fraunhofer integral.
+        """Simulates light propagation according to the Fraunhofer integral.
 
         The length unit is the pixel size in the image space, that is
         the space of the output field for forward propagation (z>=0) and
@@ -619,7 +619,7 @@ class Zernike:
         u0, v0: Coordinates of the pupil centre.
         a: Exit pupil aperture radius.
         N: Image size.
-        jmax: Number of polyomials to be allocated.
+        jmax: Number of polynomials to be allocated.
 
     Attributes:
         a, N: See above.
@@ -634,10 +634,10 @@ class Zernike:
     def __init__(self, u0, v0, a, N, jmax):
         self.a = a
         self.N = N
-        # Normalized pupil coordinates
-        v, u = np.indices((N,N))
-        self.r = np.sqrt((u-u0)**2 + (v-v0)**2)/a
-        self.p = np.arctan2(v-v0, u-u0)
+        # Normalized pupil coordinates.
+        v, u = np.indices((N, N))
+        self.r = np.sqrt((u - u0) ** 2 + (v - v0) ** 2) / a
+        self.p = np.arctan2(v - v0, u - u0)
         self.R = circle(u0, v0, a, N)
         #  Allocating the polynomials.
         self.Z = np.ones((jmax, N, N))
@@ -660,22 +660,20 @@ class Zernike:
     def poly(self, n, m):
         """Calculates the polynomials according to (n,m) indexing."""
         if m==0:
-            norm = np.sqrt(n+1.)  # Normalization
-            azim = 1.             # Azimuthal part
+            norm = np.sqrt(n + 1.)  # Normalization
+            azim = 1.               # Azimuthal part
         else:
-            norm = np.sqrt(2*n+2.)
-            azim = np.cos(m*self.p) if m>0 else np.sin(-m*self.p)
+            norm = np.sqrt(2 * n + 2.)
+            azim = np.cos(m * self.p) if m > 0 else np.sin(-m * self.p)
         m = abs(m)
         if m==n:
-            rad = self.r**n       # Radial part
+            rad = self.r ** n       # Radial part
         else:
-            factor = lambda k: (-1.)**k * fac(n-k) / (fac(k)
-                                                      * fac((n+m)/2-k)
-                                                      * fac((n-m)/2-k))
-
-
-            rad = np.sum(factor(k) * self.r**(n-2*k)
-                         for k in np.arange((n-m)/2+1))
+            factor = lambda k: (-1.) ** k * fac(n - k) / (fac(k)
+                                                        * fac((n + m) / 2 - k)
+                                                        * fac((n - m) / 2 - k))
+            rad = np.sum(factor(k) * self.r ** (n - 2 * k)
+                                            for k in np.arange((n - m) / 2 + 1))
         return norm * rad * azim
 
     def fit(self, W, jmax):
@@ -691,7 +689,7 @@ class Zernike:
             An array of length jmax representing expansion coefficients.
         """
         C = (np.sum(W[None,:,:] * self.Z[:jmax] * self.R, axis=(-2,-1))
-             / (np.pi*self.a**2))
+             / (np.pi * self.a ** 2))
         return C
 
     def __call__(self, C):
