@@ -386,7 +386,7 @@ class Errf_CUDA(Errf):
         self.fft2n = skfft.Plan(self.Gj.shape, self.Gj.dtype, self.Gj.dtype,
                                 batch=self.num)
 
-        ### Functions from 'errf_kernels.cu'.
+        ### Functions from 'kernels.cu'.
         self.get_Gj = kernels.get_function('get_Gj')
         self.mult_complex_1to1 = kernels.get_function('mult_complex_1to1')
         self.mult_complex_1ton = kernels.get_function('mult_complex_1ton')
