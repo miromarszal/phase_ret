@@ -639,17 +639,23 @@ class Zernike:
         self.r = np.sqrt((u-u0)**2 + (v-v0)**2)/a
         self.p = np.arctan2(v-v0, u-u0)
         self.R = circle(u0, v0, a, N)
-        #  Allocating the polynomials and converting indices
-        self.idx = np.zeros((jmax, 2), dtype=int)
+        #  Allocating the polynomials.
         self.Z = np.ones((jmax, N, N))
-        n, m = 0, 0
-        for j, idx in enumerate(self.idx):
-            self.idx[j] = n, m
+        for j in range(jmax):
+            n, m = self.get_indices(j + 1)
             self.Z[j] = self.poly(n, m)
-            m = m*(-1)+2 if m<=0 else m*(-1)
-            if m>n:
-                n += 1
-                m = n%2
+
+    def get_indices(self, j):
+        """Converts Noll's j index into (n, m) indices.
+
+        Probably there is a smarter way to do that...
+        """
+        # n is determined from the sum of arithmetic series.
+        n = int(np.ceil((np.sqrt(1. + 8. * j) - 1.) / 2.) - 1.)
+        k = j - n * (n + 1) // 2 - 1  # Position in the n-th row.
+        sign = - int((j % 2 - .5) * 2.)
+        m = sign * ((k + 1 - (n % 2)) // 2 * 2 + (n % 2))
+        return n, m
 
     def poly(self, n, m):
         """Calculates the polynomials according to (n,m) indexing."""
