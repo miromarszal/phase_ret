@@ -320,6 +320,40 @@ class TestTransformsCUDA:
         assert_allclose(asp_cuda_neg, asp_numpy_neg)
 
 
+class TestZernike:
+
+    def setup(self):
+        N = 512
+        a = 150.4
+        v, u = np.indices((N, N))
+        r = np.sqrt((u - N / 2.) ** 2 + (v - N / 2.) ** 2) / a
+        p = np.arctan2(v - N / 2., u - N / 2.)
+        self.R = ph.circle(N / 2., N / 2., a, N)
+        self.zern = ph.Zernike(N / 2., N / 2., a, N, 8)
+        self.Z = np.ones((8, N, N), dtype=np.float64)
+        self.Z[1] = 2. * r * np.cos(p)
+        self.Z[2] = 2. * r * np.sin(p)
+        self.Z[3] = np.sqrt(3.) * (2. * r ** 2 - 1.)
+        self.Z[4] = np.sqrt(6.) * r ** 2 * np.sin(2. * p)
+        self.Z[5] = np.sqrt(6.) * r ** 2 * np.cos(2. * p)
+        self.Z[6] = np.sqrt(8.) * (3. * r ** 3 - 2. * r) * np.sin(p)
+        self.Z[7] = np.sqrt(8.) * (3. * r ** 3 - 2. * r) * np.cos(p)
+        self.C = np.random.rand(8) * .1
+        self.W = np.tensordot(self.C, self.Z, axes=(0,0))
+
+    def test_poly(self):
+        assert_allclose(self.zern.Z, self.Z)
+
+    def test_poly_checksum(self):
+            assert_allclose(self.zern.Z.sum(axis=(-2,-1)), self.Z.sum(axis=(-2,-1)))
+
+    def test_wf(self):
+        assert_allclose(self.zern(self.C), self.W)
+
+    def test_fit(self):
+        assert_allclose(self.zern.fit(self.W, 8), self.C)
+
+
 # Run the tests!
 if __name__ == '__main__':
     result = nose.run(argv=['ignored', '-v'])
