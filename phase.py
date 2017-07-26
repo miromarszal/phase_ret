@@ -616,8 +616,6 @@ class Zernike:
     convention and normalized to their RMS values.
 
     Args:
-        u0, v0: Coordinates of the pupil centre.
-        a: Exit pupil aperture radius.
         N: Image size.
         jmax: Number of polynomials to be allocated.
 
