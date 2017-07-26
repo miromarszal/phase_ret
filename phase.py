@@ -438,8 +438,6 @@ class Transforms(object):
 
     Attributes:
         N: See above.
-        fft: FFT of a single image.
-        ifft: Inverse FFT.
         r2: Square of the real-space radial coordinate.
     """
 
@@ -463,13 +461,13 @@ class Transforms(object):
         The length unit is the pixel size in the image space, that is
         the space of the output field for forward propagation (z>=0) and
         the space of the intput field for backward propagation (z<0).
+        The fields are expected to be FFT-shifted before the operation.
+        Performing the shift is left up to the user.
 
         Args:
             U: A complex NxN array representing the input field.
             z: Distance of propagation in image-space pixels.
             wl: Wavelength of light in image-space pixels.
-            shift: Flag telling whether an fftshift should be performed
-                before carrying out the transform.
 
         Returns:
             A complex NxN array representing the transformed field.
@@ -493,8 +491,6 @@ class Transforms(object):
             U: A complex NxN array representing the input field.
             z: Distance of propagation in pixels.
             wl: Wavelength of light in pixels.
-            shift: Flag telling whether an fftshift should be performed
-                before carrying out the transform.
 
         Returns:
             A complex NxN array representing the transformed field.
@@ -531,7 +527,6 @@ class Transforms_CUDA(Transforms):
     """Subclass of Transforms employing CUDA for faster computation.
 
     TO DO:
-        * FFT shifts are done in a weird way.
         * Errors accumulate somewhere. Every now and then tests will fail
             for the fraun function.
         * The same issue with threadblocks as in Errf_CUDA.
