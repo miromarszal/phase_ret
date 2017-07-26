@@ -593,8 +593,6 @@ class Zernike(object):
     convention and normalized to their RMS values.
 
     Args:
-        u0, v0: Coordinates of the pupil centre.
-        a: Exit pupil aperture radius.
         N: Image size.
         jmax: Number of polynomials to be allocated.
 
@@ -662,7 +660,8 @@ class Zernike(object):
             u0, v0: Pupil center coordinates in pixels.
             a: Pupil aperture radius in pixels.
         """
-        if self.u0 != u0 or self.v0 != v0 or self.a != a:
+        if (u0 is not None and v0 is not None and a is not None
+            and (self.u0 != u0 or self.v0 != v0 or self.a != a)):
             self.u0, self.v0 = u0, v0
             self.a = a
             self.r = (np.sqrt((self.u - self.u0) ** 2 + (self.v - self.v0) ** 2)
@@ -673,7 +672,7 @@ class Zernike(object):
                 n, m = self.get_indices(j + 1)
                 self.Z[j] = self.get_poly(self.r, self.p, n, m)
 
-    def fit(self, W, u0, v0, a):
+    def fit(self, W, u0=None, v0=None, a=None):
         """Calculates Zernike expansion coefficients for a wavefront.
 
         Args:
@@ -690,7 +689,7 @@ class Zernike(object):
              / (np.pi * self.a ** 2))
         return C
 
-    def __call__(self, C, u0, v0, a):
+    def __call__(self, C, u0=None, v0=None, a=None):
         """Returns a wavefront given by an array of expansion coefficients.
 
         Args:

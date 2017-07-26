@@ -333,11 +333,12 @@ class TestZernike(object):
     def test_wf(self):
         assert_allclose(self.zern(self.C, self.N / 2., self.N / 2., self.a),
                         self.W)
+        assert_allclose(self.zern(self.C), self.W)
 
     def test_fit(self):
         assert_allclose(self.zern.fit(self.W, self.N / 2., self.N / 2., self.a),
                         self.C, atol=1e-4)
-
+        assert_allclose(self.zern.fit(self.W), self.C, atol=1e-4)
 
 # Run the tests!
 if __name__ == '__main__':
