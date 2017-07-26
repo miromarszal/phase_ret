@@ -438,8 +438,6 @@ class Transforms(object):
 
     Attributes:
         N: See above.
-        fft: FFT of a single image.
-        ifft: Inverse FFT.
         r2: Square of the real-space radial coordinate.
     """
 
@@ -457,25 +455,23 @@ class Transforms(object):
     def ifft(self, U):
         return spfft.ifft2(U)
 
-    def fraun(self, U, z, wl, shift=True):
+    def fraun(self, U, z, wl):
         """Simulates light propagation according to the Fraunhofer integral.
 
         The length unit is the pixel size in the image space, that is
         the space of the output field for forward propagation (z>=0) and
         the space of the intput field for backward propagation (z<0).
+        The fields are expected to be FFT-shifted before the operation.
+        Performing the shift is left up to the user.
 
         Args:
             U: A complex NxN array representing the input field.
             z: Distance of propagation in image-space pixels.
             wl: Wavelength of light in image-space pixels.
-            shift: Flag telling whether an fftshift should be performed
-                before carrying out the transform.
 
         Returns:
             A complex NxN array representing the transformed field.
         """
-        if shift:
-            U = spfft.ifftshift(U)
         # Phase factors.
         ph1 = np.exp(2.j * np.pi * z / wl)
         ph2 = np.exp(1.j * np.pi / wl / z * self.r2)
@@ -483,7 +479,7 @@ class Transforms(object):
             U2 = -1.j / self.N * ph1 * ph2 * self.fft(U)
         else:
             U2 = 1.j * self.N * ph1 * self.ifft(U * ph2)
-        return spfft.fftshift(U2) if shift else U2
+        return U2
 
     def asp(self, U, z, wl):
         """Light propagation according to the angular spectrum propagation.
@@ -495,8 +491,6 @@ class Transforms(object):
             U: A complex NxN array representing the input field.
             z: Distance of propagation in pixels.
             wl: Wavelength of light in pixels.
-            shift: Flag telling whether an fftshift should be performed
-                before carrying out the transform.
 
         Returns:
             A complex NxN array representing the transformed field.
@@ -533,7 +527,6 @@ class Transforms_CUDA(Transforms):
     """Subclass of Transforms employing CUDA for faster computation.
 
     TO DO:
-        * FFT shifts are done in a weird way.
         * Errors accumulate somewhere. Every now and then tests will fail
             for the fraun function.
         * The same issue with threadblocks as in Errf_CUDA.
@@ -566,40 +559,24 @@ class Transforms_CUDA(Transforms):
         skfft.ifft(self.Uin, self.Uout, self.fft_plan, scale=True)
         return self.Uout.get()
 
-    def fraun(self, U, z, wl, shift=True):
+    def fraun(self, U, z, wl):
         """Overrides Transforms.fraun"""
         self.Uin.set(U)
         if z>=0:
-            if shift:
-                self.fftshift(self.Uin, block=(self.N,1,1), grid=(self.N,1))
-                skfft.fft(self.Uin, self.Uout, self.fft_plan)
-                self.fftshift(self.Uout, block=(self.N,1,1), grid=(self.N,1))
-                self.mult_ph12(np.uint32(self.N), np.float64(z), np.float64(wl),
-                               self.r2_shift, self.Uout,
-                               block=(self.N,1,1), grid=(self.N,1))
-            else:
-                skfft.fft(self.Uin, self.Uout, self.fft_plan)
-                self.mult_ph12(np.uint32(self.N), np.float64(z), np.float64(wl),
-                               self.r2, self.Uout,
-                               block=(self.N,1,1), grid=(self.N,1))
+            skfft.fft(self.Uin, self.Uout, self.fft_plan)
+            self.mult_ph12(np.uint32(self.N), np.float64(z), np.float64(wl),
+                           self.r2, self.Uout,
+                           block=(self.N,1,1), grid=(self.N,1))
         else:
-            if shift:
-                self.mult_ph2(np.uint32(self.N), np.float64(z), np.float64(wl),
-                              self.r2_shift, self.Uin,
-                              block=(self.N,1,1), grid=(self.N,1))
-                self.fftshift(self.Uin, block=(self.N,1,1), grid=(self.N,1))
-                skfft.ifft(self.Uin, self.Uout, self.fft_plan, scale=True)
-                self.fftshift(self.Uout, block=(self.N,1,1), grid=(self.N,1))
-            else:
-                self.mult_ph2(np.uint32(self.N), np.float64(z), np.float64(wl),
-                              self.r2, self.Uin,
-                              block=(self.N,1,1), grid=(self.N,1))
-                skfft.ifft(self.Uin, self.Uout, self.fft_plan, scale=True)
+            self.mult_ph2(np.uint32(self.N), np.float64(z), np.float64(wl),
+                          self.r2, self.Uin,
+                          block=(self.N,1,1), grid=(self.N,1))
+            skfft.ifft(self.Uin, self.Uout, self.fft_plan, scale=True)
             self.mult_ph1(np.uint32(self.N), np.float64(z), np.float64(wl),
                           self.Uout, block=(self.N,1,1), grid=(self.N,1))
         return self.Uout.get()
 
-    def asp(self, U, z, wl, shift=True):
+    def asp(self, U, z, wl):
         """Overrides Transforms.asp."""
         self.Uin.set(U)
         skfft.fft(self.Uin, self.Utemp, self.fft_plan)

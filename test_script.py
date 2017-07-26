@@ -247,19 +247,11 @@ class TestTransformsFFTW(object):
         ifft_fftw = self.trans_fftw.ifft(self.U)
         assert_allclose(ifft_fftw, ifft_numpy)
 
-    def test_fraun_shift(self):
-        fraun_numpy_pos = self.trans_numpy.fraun(self.U, self.z, self.wl, True)
-        fraun_fftw_pos = self.trans_fftw.fraun(self.U, self.z, self.wl, True)
-        fraun_numpy_neg = self.trans_numpy.fraun(self.U, -self.z, self.wl, True)
-        fraun_fftw_neg = self.trans_fftw.fraun(self.U, -self.z, self.wl, True)
-        assert_allclose(fraun_fftw_pos, fraun_numpy_pos)
-        assert_allclose(fraun_fftw_neg, fraun_numpy_neg)
-
-    def test_fraun_noshift(self):
-        fraun_numpy_pos = self.trans_numpy.fraun(self.U, self.z, self.wl, False)
-        fraun_fftw_pos = self.trans_fftw.fraun(self.U, self.z, self.wl, False)
-        fraun_numpy_neg = self.trans_numpy.fraun(self.U, -self.z, self.wl, False)
-        fraun_fftw_neg = self.trans_fftw.fraun(self.U, -self.z, self.wl, False)
+    def test_fraun(self):
+        fraun_numpy_pos = self.trans_numpy.fraun(self.U, self.z, self.wl)
+        fraun_fftw_pos = self.trans_fftw.fraun(self.U, self.z, self.wl)
+        fraun_numpy_neg = self.trans_numpy.fraun(self.U, -self.z, self.wl)
+        fraun_fftw_neg = self.trans_fftw.fraun(self.U, -self.z, self.wl)
         assert_allclose(fraun_fftw_pos, fraun_numpy_pos)
         assert_allclose(fraun_fftw_neg, fraun_numpy_neg)
 
@@ -295,19 +287,11 @@ class TestTransformsCUDA(object):
         ifft_cuda = self.trans_cuda.ifft(self.U)
         assert_allclose(ifft_cuda, ifft_numpy)
 
-    def test_fraun_shift(self):
-        fraun_numpy_pos = self.trans_numpy.fraun(self.U, self.z, self.wl, True)
-        fraun_cuda_pos = self.trans_cuda.fraun(self.U, self.z, self.wl, True)
-        fraun_numpy_neg = self.trans_numpy.fraun(self.U, -self.z, self.wl, True)
-        fraun_cuda_neg = self.trans_cuda.fraun(self.U, -self.z, self.wl, True)
-        assert_allclose(fraun_cuda_pos, fraun_numpy_pos)
-        assert_allclose(fraun_cuda_neg, fraun_numpy_neg)
-
-    def test_fraun_noshift(self):
-        fraun_numpy_pos = self.trans_numpy.fraun(self.U, self.z, self.wl, False)
-        fraun_cuda_pos = self.trans_cuda.fraun(self.U, self.z, self.wl, False)
-        fraun_numpy_neg = self.trans_numpy.fraun(self.U, -self.z, self.wl, False)
-        fraun_cuda_neg = self.trans_cuda.fraun(self.U, -self.z, self.wl, False)
+    def test_fraun(self):
+        fraun_numpy_pos = self.trans_numpy.fraun(self.U, self.z, self.wl)
+        fraun_cuda_pos = self.trans_cuda.fraun(self.U, self.z, self.wl)
+        fraun_numpy_neg = self.trans_numpy.fraun(self.U, -self.z, self.wl)
+        fraun_cuda_neg = self.trans_cuda.fraun(self.U, -self.z, self.wl)
         assert_allclose(fraun_cuda_pos, fraun_numpy_pos)
         assert_allclose(fraun_cuda_neg, fraun_numpy_neg)
 
