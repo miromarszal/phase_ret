@@ -115,13 +115,3 @@ __global__ void mult_ph2(int N, double z, double wl, double *r2, cuDoubleComplex
     U[idx].x = u.x * c - u.y * s;
     U[idx].y = u.x * s + u.y * c;
 }
-
-__global__ void fftshift(cuDoubleComplex *U)
-{
-    int i = threadIdx.x;
-    int j = blockIdx.x;
-    int idx = i + j * blockDim.x;
-    double a = 1 - 2 * ((i + j) & 1);
-    U[idx].x *= a;
-    U[idx].y *= a;
-}
